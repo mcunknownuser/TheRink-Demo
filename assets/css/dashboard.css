@@ -1,0 +1,182 @@
+/* =========================================================================
+   RINK Booking Platform — dashboard.css (manager side only)
+   Loads after main.css on dashboard.html. DESIGN.md §5.15–5.19.
+   ========================================================================= */
+
+body.dash { background: var(--gray); }
+
+/* ---- 5.15 Dashboard chrome ---- */
+
+.dash-header {
+  background: var(--black); border-bottom: 3px solid var(--red);
+  height: 64px; position: sticky; top: 0; z-index: 100;
+}
+.dash-header__inner {
+  max-width: var(--container-wide); margin: 0 auto; padding: 0 var(--sp-5);
+  height: 100%; display: flex; align-items: center; gap: var(--sp-4);
+}
+.dash-header__logo { display: inline-block; }
+.dash-header__logo img { height: 28px; width: auto; }  /* logo-inv.png */
+.dash-header__title {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-sm);
+  text-transform: uppercase; letter-spacing: var(--ls-btn); color: var(--white);
+  border-left: 1px solid var(--white-line); padding-left: var(--sp-4);
+  margin: 0;
+}
+.dash-header__actions { margin-left: auto; display: flex; align-items: center; gap: var(--sp-4); }
+/* Hidden on phones — the header logo also links back to the booking site. */
+.dash-header__back { display: none; font-size: var(--fs-xs); color: var(--white-55); }
+.dash-header__back:hover { color: var(--white); }
+
+/* Two-step reset confirm strip, below the header */
+.reset-strip { background: var(--black); border-bottom: 1px solid var(--white-line); }
+.reset-strip__inner {
+  max-width: var(--container-wide); margin: 0 auto;
+  padding: var(--sp-4) var(--sp-5);
+  display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
+}
+.reset-strip__text { margin: 0; font-size: var(--fs-sm); color: var(--white-70); flex: 1 1 320px; }
+.reset-strip__buttons { display: flex; align-items: center; gap: var(--sp-4); }
+.reset-strip .text-link { color: var(--white); }
+
+.dash-main {
+  max-width: var(--container-wide); margin: 0 auto;
+  padding: 0 var(--sp-4) var(--sp-8);
+}
+
+.dash-utility {
+  max-width: var(--container-wide); margin: 0 auto;
+  padding: 0 var(--sp-4) var(--sp-5);
+  font-size: var(--fs-cap); color: var(--ink-70);
+}
+
+/* ---- 5.16 Stat tiles ---- */
+
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-4); margin: var(--sp-6) 0; }
+.stat {
+  background: var(--white); border: var(--border);
+  border-top: var(--edge) solid var(--black);
+  padding: var(--sp-4) var(--sp-5);
+}
+.stat--attention { border-top-color: var(--red); }   /* Pending tile only */
+.stat__value {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-stat);
+  line-height: 1; color: var(--black); font-variant-numeric: tabular-nums;
+}
+.stat--attention .stat__value { color: var(--red); }
+.stat__label {
+  font-size: var(--fs-tag); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--ink-70); margin-top: var(--sp-2);
+}
+.stat__sublabel { font-size: var(--fs-tag); color: var(--ink-45); margin-top: var(--sp-1); }
+
+/* ---- 5.17 Filter/search bar ---- */
+
+.filters {
+  background: var(--white); border: var(--border);
+  padding: var(--sp-4); margin-bottom: 0;
+  display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center;
+}
+.filters .input { width: auto; padding: 9px 12px; font-size: var(--fs-sm); }
+.filters select.input { flex: 1 1 45%; padding-right: 40px; }
+.filters .input[type="search"] { flex: 1 1 100%; min-width: 200px; }
+.filters__count { font-size: var(--fs-xs); color: var(--ink-70); margin-left: auto; white-space: nowrap; }
+.filters__hint { flex: 1 1 100%; margin: 0; font-size: var(--fs-tag); color: var(--ink-70); text-align: right; }
+
+/* ---- 5.18 Bookings table ---- */
+
+.table-wrap {
+  background: var(--white); border: var(--border); border-top: 0;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.bookings { width: 100%; border-collapse: collapse; min-width: 960px; }
+.bookings th {
+  font-size: var(--fs-tag); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--ink-70); text-align: left;
+  padding: var(--sp-3); border-bottom: 2px solid var(--black);
+  white-space: nowrap;
+}
+.bookings th.is-sortable { cursor: pointer; user-select: none; }
+.bookings th.is-sortable:hover { color: var(--black); }
+.bookings th.is-sorted { color: var(--black); }
+.bookings th.is-sorted::after { content: " ↑"; color: var(--red); }
+.bookings th.is-sorted.desc::after { content: " ↓"; }
+.bookings th .sort-btn {
+  background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.bookings td {
+  font-size: var(--fs-xs); padding: var(--sp-3);
+  border-bottom: 1px solid var(--line-soft); vertical-align: top;
+}
+.bookings td.num { font-variant-numeric: tabular-nums; text-align: right; }
+.bookings tbody tr { cursor: pointer; transition: background-color var(--speed) ease; }
+.bookings tbody tr:hover { background: var(--hover-tint); }
+.bookings tbody tr.is-open { background: var(--red-tint); box-shadow: inset var(--edge) 0 0 0 var(--red); }
+.bookings tbody tr.is-cancelled td { color: var(--ink-45); }
+.bookings .ref { font-family: var(--font-head); font-weight: 600; font-size: var(--fs-xs); letter-spacing: 0.04em; white-space: nowrap; }
+
+/* Empty state */
+.empty {
+  padding: var(--sp-8) var(--sp-5); text-align: center;
+  border: 1px dashed rgba(57, 57, 57, 0.4); margin: var(--sp-5);
+}
+.empty h3 { margin-bottom: var(--sp-2); }
+.empty p { font-size: var(--fs-sm); color: var(--ink-70); margin: 0 0 var(--sp-4); }
+.empty p:last-child { margin-bottom: 0; }
+
+/* ---- 5.19 Booking detail panel (right-side slide-over) ---- */
+
+.panel-scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 200; border: 0; padding: 0; }
+.panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 201;
+  width: min(440px, 100vw);
+  background: var(--white);
+  border-left: var(--edge) solid var(--red);
+  display: flex; flex-direction: column;
+}
+.panel__head {
+  background: var(--black); color: var(--white);
+  padding: var(--sp-4) var(--sp-5);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
+}
+.panel__head-left { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.panel__ref { font-family: var(--font-head); font-weight: 600; font-size: var(--fs-h3); letter-spacing: 0.04em; margin: 0; text-transform: uppercase; }
+.panel__close { background: none; border: 1px solid var(--white-line); color: var(--white); width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; }
+.panel__close:hover { border-color: var(--white); }
+.panel__body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+.panel__section + .panel__section { border-top: 1px solid var(--line-soft); margin-top: var(--sp-4); padding-top: var(--sp-4); }
+.panel__section h3 { font-size: var(--fs-cap); letter-spacing: var(--ls-btn); color: var(--ink-70); margin-bottom: var(--sp-3); }
+.panel__section dl { margin: 0; }
+.panel__row { display: flex; justify-content: space-between; gap: var(--sp-4); padding: 3px 0; font-size: var(--fs-xs); }
+.panel__row dt { color: var(--ink-70); }
+.panel__row dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.panel__actions {
+  border-top: 2px solid var(--black); padding: var(--sp-4) var(--sp-5);
+  display: flex; gap: var(--sp-3);
+}
+.panel__actions .btn { flex: 1; }
+.panel__actions--confirm { flex-direction: column; align-items: stretch; }
+.panel__confirm-text { margin: 0; font-size: var(--fs-xs); color: var(--ink); }
+.panel__confirm-buttons { display: flex; align-items: center; gap: var(--sp-4); }
+.panel__confirm-buttons .btn { flex: 1; }
+.panel__cancelled-note { margin: 0; font-size: var(--fs-xs); color: var(--ink-70); align-self: center; }
+
+/* =========================================================================
+   Breakpoints
+   ========================================================================= */
+
+@media (min-width: 640px) {
+  .dash-main { padding: 0 var(--sp-5) var(--sp-8); }
+  .dash-utility { padding: 0 var(--sp-5) var(--sp-5); }
+  .dash-header__back { display: inline; }
+  .filters select.input { flex: 0 1 auto; }
+  .filters .input[type="search"] { flex: 1 1 200px; }
+  .filters__hint { flex: 0 1 auto; }
+}
+
+@media (min-width: 1024px) {
+  .stats { grid-template-columns: repeat(4, 1fr); }
+}

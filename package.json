@@ -1,0 +1,6 @@
+{
+  "name": "rink-booking-demo",
+  "private": true,
+  "type": "module",
+  "description": "RINK booking platform demo. Static site, no dependencies, no build step. Marker file so Node parses assets/js/*.js as ES modules for syntax checks and the smoke test."
+}

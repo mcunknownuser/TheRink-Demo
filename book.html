@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book — RINK</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="site-header__logo" href="index.html">
+        <img src="assets/img/logo-inv.png" alt="RINK — The Home of Hockey Development">
+      </a>
+      <span class="site-header__tagline">The Home of Hockey Development</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="container page-head">
+      <h1>Make a booking</h1>
+    </div>
+
+    <div class="container">
+      <ol class="steps" id="steps" aria-label="Booking steps">
+        <li class="steps__item is-current" data-step="1" aria-current="step">
+          <button type="button" class="steps__num" data-goto="1" disabled>1</button>
+          <span class="steps__label">Service</span>
+        </li>
+        <li class="steps__item" data-step="2">
+          <button type="button" class="steps__num" data-goto="2" disabled>2</button>
+          <span class="steps__label">Location</span>
+        </li>
+        <li class="steps__item" data-step="3">
+          <button type="button" class="steps__num" data-goto="3" disabled>3</button>
+          <span class="steps__label">Schedule</span>
+        </li>
+        <li class="steps__item" data-step="4">
+          <button type="button" class="steps__num" data-goto="4" disabled>4</button>
+          <span class="steps__label">Details</span>
+        </li>
+        <li class="steps__item" data-step="5">
+          <button type="button" class="steps__num" data-goto="5" disabled>5</button>
+          <span class="steps__label">Review &amp; deposit</span>
+        </li>
+      </ol>
+      <p class="steps__current-label" id="stepsCurrentLabel">Step 1 of 5 — Service</p>
+    </div>
+
+    <div class="wizard">
+      <section class="step-panel" id="stepPanel" aria-labelledby="stepTitle">
+        <!-- Step content rendered by assets/js/book.js -->
+        <noscript>
+          <p>This booking wizard needs JavaScript. Call the front desk to book: <a href="tel:+12045604233">(204) 560-4233</a>.</p>
+        </noscript>
+      </section>
+
+      <aside class="rail on-dark" aria-label="Your booking">
+        <h2>Your booking</h2>
+        <div class="rail__row">
+          <span class="rail__label">Service</span>
+          <span class="rail__value" id="railService"></span>
+        </div>
+        <div class="rail__row">
+          <span class="rail__label">Location</span>
+          <span class="rail__value" id="railLocation"></span>
+        </div>
+        <div class="rail__row">
+          <span class="rail__label">Schedule</span>
+          <span class="rail__value" id="railSchedule"></span>
+        </div>
+        <div class="rail__row">
+          <span class="rail__label" id="railParticipantLabel">Participant</span>
+          <span class="rail__value" id="railParticipant"></span>
+        </div>
+        <div class="rail__total">
+          <span class="rail__total-label">Deposit</span>
+          <span class="rail__total-amount" id="railDeposit"></span>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__main">
+      <div>
+        <img class="site-footer__logo" src="assets/img/logo-inv.png" alt="RINK — The Home of Hockey Development">
+        <p class="site-footer__tagline">The Home of Hockey Development</p>
+      </div>
+      <div>
+        <h3>Our locations</h3>
+        <address>
+          <p>RINK Training Centre<br>660 Century St, Winnipeg, MB<br><a href="tel:+12045604233">(204) 560-4233</a></p>
+          <p>RINK North — Gateway Arena<br>1717 Gateway Rd, Winnipeg, MB<br><a href="tel:+12043342210">(204) 334-2210</a></p>
+          <p>RINK Kelowna — Rutland Arena<br>605 Rutland Rd N, Kelowna, BC<br><a href="tel:+12507654188">(250) 765-4188</a></p>
+        </address>
+      </div>
+      <div>
+        <h3>Front desk</h3>
+        <p>Open daily, 8:00 AM–8:00 PM<br><a href="mailto:bookings@therink.ca">bookings@therink.ca</a></p>
+      </div>
+    </div>
+    <div class="site-footer__utility">
+      <span>This is a demonstration booking platform. Deposits are simulated and no payments are processed.</span>
+      <span class="site-footer__utility-right">
+        <span>© 2026 RINK. The Home of Hockey Development.</span>
+        <a class="site-footer__manager-link" href="dashboard.html">Manager Dashboard</a>
+      </span>
+    </div>
+  </footer>
+
+  <script type="module" src="assets/js/book.js"></script>
+
+</body>
+</html>

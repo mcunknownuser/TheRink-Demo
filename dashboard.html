@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manager Dashboard — RINK</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+</head>
+<body class="dash">
+
+  <header class="dash-header">
+    <div class="dash-header__inner">
+      <a class="dash-header__logo" href="index.html">
+        <img src="assets/img/logo-inv.png" alt="RINK — The Home of Hockey Development">
+      </a>
+      <h1 class="dash-header__title">Manager Dashboard</h1>
+      <div class="dash-header__actions">
+        <a class="dash-header__back" href="index.html">Back to booking site</a>
+        <button type="button" class="btn btn--on-dark btn--small" id="resetBtn">Reset demo data</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="reset-strip on-dark" id="resetStrip" tabindex="-1" role="region" aria-label="Reset demo data" hidden>
+    <div class="reset-strip__inner">
+      <p class="reset-strip__text">Reset demo data? This removes every booking in this browser and restores the original sample set.</p>
+      <div class="reset-strip__buttons">
+        <button type="button" class="btn btn--danger btn--small is-armed" id="resetConfirmBtn">Yes, reset</button>
+        <button type="button" class="text-link" id="resetCancelBtn">Keep current data</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="dash-main">
+
+    <section class="stats" aria-label="Summary statistics">
+      <div class="stat">
+        <p class="stat__value" id="statWeek">0</p>
+        <p class="stat__label">Bookings this week</p>
+        <p class="stat__sublabel">Last 7 days, excluding cancelled</p>
+      </div>
+      <div class="stat">
+        <p class="stat__value" id="statDeposits">$0 CAD</p>
+        <p class="stat__label">Deposits collected</p>
+        <p class="stat__sublabel">Pending and confirmed</p>
+      </div>
+      <div class="stat stat--attention">
+        <p class="stat__value" id="statPending">0</p>
+        <p class="stat__label">Pending</p>
+        <p class="stat__sublabel">Waiting on confirmation</p>
+      </div>
+      <div class="stat">
+        <p class="stat__value" id="statActive">0</p>
+        <p class="stat__label">Active bookings</p>
+        <p class="stat__sublabel">All non-cancelled</p>
+      </div>
+    </section>
+
+    <section class="filters" aria-label="Filter and search bookings">
+      <label class="visually-hidden" for="filterService">Service</label>
+      <select class="input" id="filterService">
+        <option value="">All services</option>
+      </select>
+      <label class="visually-hidden" for="filterLocation">Location</label>
+      <select class="input" id="filterLocation">
+        <option value="">All locations</option>
+      </select>
+      <label class="visually-hidden" for="filterStatus">Status</label>
+      <select class="input" id="filterStatus">
+        <option value="">All statuses</option>
+        <option value="pending">Pending</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <label class="visually-hidden" for="searchInput">Search</label>
+      <input class="input" type="search" id="searchInput" placeholder="Ref, contact, or participant">
+      <span class="filters__count" id="filterCount" aria-live="polite"></span>
+      <button type="button" class="text-link" id="clearFiltersBtn" hidden>Clear filters</button>
+      <button type="button" class="btn btn--secondary btn--small" id="exportBtn">Export CSV</button>
+      <p class="filters__hint">Downloads the bookings currently shown.</p>
+    </section>
+
+    <div class="table-wrap">
+      <table class="bookings" id="bookingsTable" tabindex="-1">
+        <thead>
+          <tr>
+            <th scope="col">Ref</th>
+            <th scope="col" class="is-sortable is-sorted desc" data-sort="created" aria-sort="descending">
+              <button type="button" class="sort-btn">Created</button>
+            </th>
+            <th scope="col">Service</th>
+            <th scope="col">Location</th>
+            <th scope="col" class="is-sortable" data-sort="schedule">
+              <button type="button" class="sort-btn">Schedule</button>
+            </th>
+            <th scope="col">Participant</th>
+            <th scope="col" class="is-sortable" data-sort="deposit">
+              <button type="button" class="sort-btn">Deposit</button>
+            </th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody id="bookingsBody"></tbody>
+      </table>
+      <div class="empty" id="emptyState" hidden></div>
+    </div>
+
+  </main>
+
+  <div class="dash-utility">
+    This is a demonstration booking platform. Deposits are simulated and no payments are processed.
+  </div>
+
+  <div class="panel-scrim" id="panelScrim" hidden></div>
+  <aside class="panel" id="detailPanel" role="dialog" aria-labelledby="panelRef" hidden>
+    <div class="panel__head on-dark">
+      <div class="panel__head-left">
+        <h2 class="panel__ref" id="panelRef"></h2>
+        <span class="badge" id="panelBadge"></span>
+      </div>
+      <button type="button" class="panel__close" id="panelClose" aria-label="Close">
+        <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4 L12 12 M12 4 L4 12"/></svg>
+      </button>
+    </div>
+    <div class="panel__body" id="panelBody"></div>
+    <div class="panel__actions" id="panelActions"></div>
+  </aside>
+
+  <script type="module" src="assets/js/dashboard.js"></script>
+
+</body>
+</html>
