@@ -1,12 +1,13 @@
 /*
- * Minimal Node smoke test for the data layer (assets/js/store.js).
+ * Minimal Node smoke test for the data layer: assets/js/store.js (bookings)
+ * and assets/js/accounts.js (accounts + the credit ledger).
  * Run: node test/smoke.mjs   (from the project root)
- * Uses a localStorage stub; no browser required.
+ * Uses localStorage/sessionStorage stubs; no browser required.
  */
 
 import assert from "node:assert/strict";
 
-/* localStorage stub, installed before the store is imported */
+/* Storage stubs, installed before the modules are imported */
 const data = new Map();
 globalThis.localStorage = {
   getItem: (k) => (data.has(k) ? data.get(k) : null),
@@ -15,7 +16,18 @@ globalThis.localStorage = {
   clear: () => data.clear()
 };
 
+const sessionData = new Map();
+globalThis.sessionStorage = {
+  getItem: (k) => (sessionData.has(k) ? sessionData.get(k) : null),
+  setItem: (k, v) => sessionData.set(k, String(v)),
+  removeItem: (k) => sessionData.delete(k),
+  clear: () => sessionData.clear()
+};
+
 const store = await import("../assets/js/store.js");
+const accounts = await import("../assets/js/accounts.js");
+const catalog = await import("../assets/js/catalog.js");
+const card = await import("../assets/js/card.js");
 
 let passed = 0;
 function ok(name, fn) {
@@ -49,7 +61,7 @@ const newBooking = store.createBooking({
   schedule: { date: "2026-08-20", startTime: "09:00", endTime: "10:00" },
   participant: { name: "Test Skater", ageGroup: "U11", notes: "" },
   contact: { name: "Test Parent", email: "parent@example.com", phone: "(204) 555-0134" },
-  deposit: { amount: 50, cardLast4: "4242" }
+  deposit: { amount: 150, cardLast4: "4242" }
 });
 
 ok("createBooking generates a valid, unique ref and stores it as pending", () => {
@@ -94,7 +106,7 @@ ok("CSV export includes expected columns and all rows", () => {
   const lines = csv.split("\r\n");
   assert.equal(
     lines[0],
-    "Ref,Created,Service,Location,Schedule,Participant,Deposit,Status,Email,Phone"
+    "Ref,Created,Service,Location,Schedule,Participant,Paid with,Deposit,Status,Email,Phone"
   );
   assert.equal(lines.length, store.getBookings().length + 1);
   assert.equal(csv.includes(newBooking.ref), true);
@@ -126,6 +138,140 @@ ok("malformed records are dropped on read, and CSV/consumers survive", () => {
   assert.equal(store.getBookings().length, before, "junk records must be filtered out");
   assert.doesNotThrow(() => store.bookingsToCsv(store.getBookings()));
   assert.equal(store.findBooking("RNK-99999"), null);
+});
+
+/* 6. Accounts + credit ledger */
+
+ok("seeded ledger produces the intended balances", () => {
+  assert.equal(accounts.balanceOf("s.hartley@mymts.net", "player-1on1"), 6);
+  assert.equal(accounts.balanceOf("renee.desjardins@gmail.com", "player-1on1"), 0);
+  assert.equal(accounts.balanceOf("dbraun@telus.net", "goalie-1on1"), 4);
+  /* Credit types are not fungible across services. */
+  assert.equal(accounts.balanceOf("dbraun@telus.net", "player-1on1"), 0);
+});
+
+ok("accounts are derived from bookings, so seeded customers already exist", () => {
+  const a = accounts.accountFor("S.Hartley@MyMTS.net "); // messy input must normalize
+  assert.equal(a.email, "s.hartley@mymts.net");
+  assert.equal(a.profile.name, "Sarah Hartley");
+  assert.equal(a.bookings.length >= 1, true);
+  assert.equal(a.totalCredits, 6);
+  assert.equal(a.lifetimeSpend, 1690, "one 10-pack, no deposits");
+
+  /* An account with bookings but no ledger is still a real account. */
+  const deposits = accounts.accountFor("mike.reimer@outlook.com");
+  assert.equal(deposits.exists, true);
+  assert.deepEqual(deposits.balances, []);
+  assert.equal(deposits.lifetimeSpend, 150);
+
+  assert.equal(accounts.accountFor("nobody@example.com").exists, false);
+});
+
+ok("purchase adds credits and redemption spends exactly one", () => {
+  const pkg = catalog.findPackage("player-1on1", "five");
+  assert.equal(catalog.packageTotal(pkg), 895);
+  assert.equal(catalog.packageSavings("player-1on1", pkg), 100);
+
+  const email = "buyer@example.com";
+  accounts.purchasePackage(email, "player-1on1", pkg);
+  assert.equal(accounts.balanceOf(email, "player-1on1"), 5);
+  accounts.redeemCredit(email, "player-1on1", "RNK-11111");
+  assert.equal(accounts.balanceOf(email, "player-1on1"), 4);
+});
+
+ok("redemption is refused when the balance is zero", () => {
+  const email = "empty@example.com";
+  assert.equal(accounts.redeemCredit(email, "player-1on1", "RNK-22222"), null);
+  assert.equal(accounts.balanceOf(email, "player-1on1"), 0, "balance must never go negative");
+});
+
+ok("cancellation policy: outside 24h refunds, inside 24h forfeits", () => {
+  const email = "policy@example.com";
+  accounts.purchasePackage(email, "player-1on1", catalog.findPackage("player-1on1", "ten"));
+
+  const mk = (hoursAhead) => {
+    const when = new Date(Date.now() + hoursAhead * 3600000);
+    const iso = when.getFullYear() + "-" +
+      String(when.getMonth() + 1).padStart(2, "0") + "-" +
+      String(when.getDate()).padStart(2, "0");
+    const b = store.createBooking({
+      serviceId: "player-1on1",
+      serviceName: "Player 1-on-1 Session",
+      serviceType: "hourly",
+      locationId: "trc",
+      locationName: "RINK Training Centre — Winnipeg, MB",
+      schedule: { date: iso, startTime: String(when.getHours()).padStart(2, "0") + ":00", endTime: "23:00" },
+      participant: { name: "Policy Test", ageGroup: "U13", notes: "" },
+      contact: { name: "Policy Parent", email, phone: "(204) 555-0100" },
+      deposit: { amount: 0, cardLast4: null },
+      payment: { method: "credit", creditType: "player-1on1", used: 1, ledgerId: null }
+    });
+    accounts.redeemCredit(email, "player-1on1", b.ref);
+    return b;
+  };
+
+  const far = mk(72);
+  const before = accounts.balanceOf(email, "player-1on1");
+  accounts.applyCancellationPolicy(far);
+  assert.equal(accounts.balanceOf(email, "player-1on1"), before + 1, "outside the window returns the credit");
+
+  const soon = mk(3);
+  const before2 = accounts.balanceOf(email, "player-1on1");
+  const entry = accounts.applyCancellationPolicy(soon);
+  assert.equal(entry.kind, "forfeit");
+  assert.equal(entry.qty, 0, "a forfeit records the fact but moves no credits");
+  assert.equal(accounts.balanceOf(email, "player-1on1"), before2, "inside the window the credit stays spent");
+});
+
+ok("a comp is recorded with its reason and raises the balance", () => {
+  const email = "comped@example.com";
+  accounts.compCredit(email, "goalie-1on1", "Coach illness");
+  assert.equal(accounts.balanceOf(email, "goalie-1on1"), 1);
+  const entry = accounts.entriesFor(email)[0];
+  assert.equal(entry.kind, "comp");
+  assert.equal(entry.note, "Coach illness");
+});
+
+ok("credit-paid bookings report a credit, not a dollar amount", () => {
+  const credit = store.findBooking("RNK-73418");
+  assert.equal(store.isCreditPaid(credit), true);
+  assert.equal(store.paymentLine(credit), "1 session credit");
+  assert.equal(store.bookingAmount(credit), 0, "credit bookings must not double-count revenue");
+
+  const deposit = store.findBooking("RNK-46711");
+  assert.equal(store.isCreditPaid(deposit), false);
+  assert.equal(store.paymentLine(deposit), "$150 CAD · card ending 2280");
+  assert.equal(store.bookingAmount(deposit), 150);
+});
+
+ok("malformed ledger entries are dropped on read", () => {
+  const before = accounts.getLedger().length;
+  const raw = JSON.parse(localStorage.getItem(store.CREDITS_KEY));
+  raw.push({}, null, 7, { id: "x", email: "a@b.c" }, { id: "y", email: "a@b.c", creditType: "t", qty: "many", at: "z" });
+  localStorage.setItem(store.CREDITS_KEY, JSON.stringify(raw));
+  assert.equal(accounts.getLedger().length, before, "junk entries must not reach the balance arithmetic");
+  assert.doesNotThrow(() => accounts.allAccounts());
+});
+
+ok("1-on-1 age divisions start at U9 and card validation is shared", () => {
+  const groups = catalog.ageGroupsFor(catalog.getService("player-1on1"));
+  assert.equal(groups.includes("U7"), false, "1-on-1 instruction is U9 and up");
+  assert.equal(groups[0], "U9");
+  assert.deepEqual(catalog.ageGroupsFor(catalog.getService("hockey-camp")), catalog.CAMP_AGE_GROUPS);
+
+  const at = new Date(2026, 7, 9); // 2026-08-09
+  assert.deepEqual(card.validateCard({ name: "A B", number: "4242424242424242", expiry: "08/26", cvc: "123" }, at), {});
+  assert.equal("cardExpiry" in card.validateCard({ name: "A B", number: "4242424242424242", expiry: "07/26", cvc: "123" }, at), true);
+  assert.equal(card.cardLast4("4242 4242 4242 1234"), "1234");
+});
+
+ok("sign-in round-trips through sessionStorage", () => {
+  accounts.signIn("  Dbraun@Telus.net ");
+  assert.equal(accounts.currentEmail(), "dbraun@telus.net");
+  assert.equal(accounts.currentAccount().totalCredits, 4);
+  accounts.signOut();
+  assert.equal(accounts.currentEmail(), null);
+  assert.equal(accounts.currentAccount(), null);
 });
 
 console.log("\nAll " + passed + " smoke tests passed.");

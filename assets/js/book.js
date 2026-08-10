@@ -16,19 +16,29 @@ import {
   slotEndTime,
   SLOT_TIMES,
   BOOKING_WINDOW_DAYS,
-  HOURLY_AGE_GROUPS,
-  CAMP_AGE_GROUPS
+  isCreditService,
+  creditTypeFor,
+  packagesFor,
+  findPackage,
+  packageTotal,
+  packageSavings,
+  ageGroupsFor,
+  CREDIT_TYPES
 } from "./catalog.js";
 
 import {
   ensureSeed,
   createBooking,
+  setBookingPayment,
   isSlotBooked,
   parseISODate,
   formatDate,
   formatMoney,
   formatMoneyCAD
 } from "./store.js";
+
+import { balanceOf, purchasePackage, redeemCredit, signIn, normalizeEmail } from "./accounts.js";
+import { validateCard } from "./card.js";
 
 ensureSeed();
 
@@ -46,6 +56,7 @@ function blankDraft() {
     step: 1,
     serviceId: null,
     locationId: null,
+    packageId: null, // credit services only: which package the customer is buying
     schedule: blankSchedule(),
     details: {
       participantName: "",
@@ -71,6 +82,7 @@ function loadDraft() {
       step: Number(d.step) || 1,
       serviceId: d.serviceId || null,
       locationId: d.locationId || null,
+      packageId: d.packageId || null,
       schedule: { ...base.schedule, ...(d.schedule || {}) },
       details: { ...base.details, ...(d.details || {}) }
     };
@@ -280,6 +292,7 @@ function renderStep1() {
       if (draft.serviceId && draft.serviceId !== newId && hadLaterData) {
         draft.locationId = null;
         draft.schedule = blankSchedule();
+        draft.packageId = null; // packages are per-service; never carry one over
         showServiceChangeNotice = true;
         draft.serviceId = newId;
         pendingErrors = {};
@@ -560,7 +573,7 @@ function renderStep4() {
         '<input class="input input--readonly" type="text" id="pAgeFixed" value="' + esc(derived) + '" readonly>' +
         "</div>";
     } else {
-      const options = isCamp ? CAMP_AGE_GROUPS : HOURLY_AGE_GROUPS;
+      const options = ageGroupsFor(svc);
       html +=
         '<div class="' + fieldClass("pAge") + '">' +
         '<label class="field__label" for="pAge">Age division</label>' +
@@ -647,15 +660,125 @@ function recapGroup(title, gotoStep, rowsHtml) {
   );
 }
 
+/*
+ * Which of the three checkout shapes step 5 renders:
+ *
+ *   "deposit"  — rentals, camps, seasonal registration. Card, deposit amount.
+ *   "redeem"   — a credit service and this email already has a credit banked.
+ *                No card at all: the session was paid for when it was bought.
+ *   "purchase" — a credit service with no balance. Buy a package, spend one
+ *                session on this booking, bank the rest.
+ *
+ * The email typed at step 4 is the account key, so the mode can flip between
+ * renders as the customer edits it — which is exactly what should happen.
+ */
+function checkoutMode() {
+  const svc = getService(draft.serviceId);
+  if (!svc || !isCreditService(svc.id)) return "deposit";
+  const email = normalizeEmail(draft.details.email);
+  if (!email) return "purchase";
+  return balanceOf(email, creditTypeFor(svc.id)) >= 1 ? "redeem" : "purchase";
+}
+
+function selectedPackage() {
+  const svc = getService(draft.serviceId);
+  if (!svc) return null;
+  return draft.packageId ? findPackage(svc.id, draft.packageId) : null;
+}
+
+function creditPayHtml(svc) {
+  const type = creditTypeFor(svc.id);
+  const label = (CREDIT_TYPES[type] || {}).short || "Session";
+  const balance = balanceOf(normalizeEmail(draft.details.email), type);
+  return (
+    "<h3>Pay with your session credits</h3>" +
+    '<p class="step-intro">This booking is covered by credits already on your account. No payment is needed today.</p>' +
+    '<div class="credit-pay">' +
+    '<div class="credit-pay__row"><span>' + esc(label) + " credits available</span>" +
+    '<span class="credit-pay__num">' + balance + "</span></div>" +
+    '<div class="credit-pay__row"><span>This booking uses</span>' +
+    '<span class="credit-pay__num">1</span></div>' +
+    '<div class="credit-pay__row credit-pay__row--total"><span>Remaining after booking</span>' +
+    '<span class="credit-pay__num">' + (balance - 1) + "</span></div>" +
+    "</div>" +
+    '<p class="fine-print">Cancel more than 24 hours before the session and the credit returns to your account. Inside 24 hours, the session is used.</p>'
+  );
+}
+
+function packagePickerHtml(svc) {
+  const type = creditTypeFor(svc.id);
+  const label = (CREDIT_TYPES[type] || {}).short || "Session";
+  let html = "<h3>Choose a package</h3>";
+  html +=
+    '<p class="step-intro">' + esc(label) +
+    " sessions are sold as packages. Buy one now, use a session for this booking, and the rest stay on your account for next time.</p>";
+  html += groupError("packageId");
+  html += '<fieldset class="option-set"><legend class="visually-hidden">Package</legend><ul class="option-list">';
+  for (const pkg of packagesFor(svc.id)) {
+    const saved = packageSavings(svc.id, pkg);
+    html +=
+      "<li>" +
+      optionRow(pkg.label, pkg.id, draft.packageId === pkg.id, {
+        group: "packageId",
+        sub: formatMoney(pkg.unit) + " per session" + (saved > 0 ? " · save " + formatMoney(saved) : ""),
+        price: formatMoney(packageTotal(pkg))
+      }) +
+      "</li>";
+  }
+  html += "</ul></fieldset>";
+  return html;
+}
+
+function cardFieldsHtml() {
+  let html =
+    '<div class="' + fieldClass("cardName") + '">' +
+    '<label class="field__label" for="cardName">Cardholder name</label>' +
+    '<input class="input" type="text" id="cardName" placeholder="Name as shown on the card"' + ariaErr("cardName") + ">" +
+    fieldError("cardName") +
+    "</div>";
+  html +=
+    '<div class="' + fieldClass("cardNumber") + '">' +
+    '<label class="field__label" for="cardNumber">Card number</label>' +
+    '<input class="input input--card" type="text" id="cardNumber" inputmode="numeric" placeholder="4242 4242 4242 4242"' + ariaErr("cardNumber") + ">" +
+    fieldError("cardNumber") +
+    "</div>";
+  html += '<div class="field-row">';
+  html +=
+    '<div class="' + fieldClass("cardExpiry") + '">' +
+    '<label class="field__label" for="cardExpiry">Expiry</label>' +
+    '<input class="input input--card" type="text" id="cardExpiry" inputmode="numeric" placeholder="MM/YY"' + ariaErr("cardExpiry") + ">" +
+    fieldError("cardExpiry") +
+    "</div>";
+  html +=
+    '<div class="' + fieldClass("cardCvc") + '">' +
+    '<label class="field__label" for="cardCvc">CVC</label>' +
+    '<input class="input input--card" type="text" id="cardCvc" inputmode="numeric" placeholder="123"' + ariaErr("cardCvc") + ">" +
+    fieldError("cardCvc") +
+    "</div>";
+  html += "</div>";
+  return html;
+}
+
+const DEMO_NOTICE_HTML =
+  '<div class="demo-notice">' + ICON_INFO +
+  '<div><span class="demo-notice__title">Demo checkout.</span>' +
+  '<p class="demo-notice__text">No payment is processed and no card is ever charged. Enter any card details in a valid format to complete the booking.</p>' +
+  "</div></div>";
+
 function renderStep5() {
   const svc = getService(draft.serviceId);
   const loc = getLocation(draft.locationId);
   const s = draft.schedule;
   const d = draft.details;
-  const amount = currentDeposit();
+  const mode = checkoutMode();
   const isRental = svc.id === "ice-rental";
 
-  let html = panelHead("Review & pay deposit", "Check everything over, then pay the deposit to hold your booking.");
+  const heading = mode === "redeem" ? "Review & confirm" : "Review & pay";
+  const intro =
+    mode === "redeem"
+      ? "Check everything over, then confirm. This booking uses one of your session credits."
+      : "Check everything over, then pay to hold your booking.";
+  let html = panelHead(heading, intro);
   html += '<form id="payForm" autocomplete="off" novalidate>';
   html += '<div class="recap">';
   html += recapGroup("Service", 1, recapRow("Service", svc.name));
@@ -693,50 +816,45 @@ function renderStep5() {
   );
   html += "</div>";
 
-  html += "<h3>Deposit checkout</h3>";
-  html +=
-    '<div class="checkout__amount"><span class="checkout__amount-label">Deposit due today</span>' +
-    '<span class="checkout__amount-value">' + formatMoneyCAD(amount) + "</span></div>";
-
-  html +=
-    '<div class="demo-notice">' + ICON_INFO +
-    '<div><span class="demo-notice__title">Demo checkout.</span>' +
-    '<p class="demo-notice__text">No payment is processed and no card is ever charged. Enter any card details in a valid format to complete the booking.</p>' +
-    "</div></div>";
-
-  html +=
-    '<div class="' + fieldClass("cardName") + '">' +
-    '<label class="field__label" for="cardName">Cardholder name</label>' +
-    '<input class="input" type="text" id="cardName" placeholder="Name as shown on the card"' + ariaErr("cardName") + ">" +
-    fieldError("cardName") +
-    "</div>";
-  html +=
-    '<div class="' + fieldClass("cardNumber") + '">' +
-    '<label class="field__label" for="cardNumber">Card number</label>' +
-    '<input class="input input--card" type="text" id="cardNumber" inputmode="numeric" placeholder="4242 4242 4242 4242"' + ariaErr("cardNumber") + ">" +
-    fieldError("cardNumber") +
-    "</div>";
-  html += '<div class="field-row">';
-  html +=
-    '<div class="' + fieldClass("cardExpiry") + '">' +
-    '<label class="field__label" for="cardExpiry">Expiry</label>' +
-    '<input class="input input--card" type="text" id="cardExpiry" inputmode="numeric" placeholder="MM/YY"' + ariaErr("cardExpiry") + ">" +
-    fieldError("cardExpiry") +
-    "</div>";
-  html +=
-    '<div class="' + fieldClass("cardCvc") + '">' +
-    '<label class="field__label" for="cardCvc">CVC</label>' +
-    '<input class="input input--card" type="text" id="cardCvc" inputmode="numeric" placeholder="123"' + ariaErr("cardCvc") + ">" +
-    fieldError("cardCvc") +
-    "</div>";
-  html += "</div>";
+  let payLabel;
+  if (mode === "redeem") {
+    html += creditPayHtml(svc);
+    payLabel = "Confirm booking";
+  } else if (mode === "purchase") {
+    const pkg = selectedPackage();
+    html += packagePickerHtml(svc);
+    html +=
+      '<div class="checkout__amount"><span class="checkout__amount-label">Total due today</span>' +
+      '<span class="checkout__amount-value">' + (pkg ? formatMoneyCAD(packageTotal(pkg)) : "—") + "</span></div>";
+    if (pkg) {
+      html +=
+        '<p class="step-intro">This booking uses 1 session. ' +
+        (pkg.qty - 1) + " will stay on your account.</p>";
+    }
+    html += DEMO_NOTICE_HTML;
+    html += cardFieldsHtml();
+    payLabel = pkg ? "Pay " + formatMoney(packageTotal(pkg)) : "Pay";
+  } else {
+    const amount = currentDeposit();
+    html += "<h3>Deposit checkout</h3>";
+    html +=
+      '<div class="checkout__amount"><span class="checkout__amount-label">Deposit due today</span>' +
+      '<span class="checkout__amount-value">' + formatMoneyCAD(amount) + "</span></div>";
+    html += DEMO_NOTICE_HTML;
+    html += cardFieldsHtml();
+    payLabel = "Pay " + formatMoney(amount) + " deposit";
+  }
 
   html +=
     '<div class="step-panel__controls">' +
     '<button type="button" class="btn btn--secondary" id="backBtn">Back</button>' +
-    '<button type="submit" class="btn btn--primary" id="payBtn">Pay ' + formatMoney(amount) + " deposit</button>" +
+    '<button type="submit" class="btn btn--primary" id="payBtn">' + esc(payLabel) + "</button>" +
     "</div>";
-  html += '<p class="fine-print">Deposits are held against your booking and refunded if the front desk cancels it. This is a demo transaction.</p>';
+  if (mode === "deposit") {
+    html += '<p class="fine-print">Deposits are held against your booking and refunded if the front desk cancels it. This is a demo transaction.</p>';
+  } else if (mode === "purchase") {
+    html += '<p class="fine-print">Packages are non-transferable. Cancel a session more than 24 hours ahead and the credit returns to your account. This is a demo transaction.</p>';
+  }
   html += "</form>";
 
   panel.innerHTML = html;
@@ -746,6 +864,16 @@ function renderStep5() {
       draft.step = Number(btn.dataset.gotoStep);
       pendingErrors = {};
       render();
+    });
+  });
+
+  /* Package choice changes the amount and the button label, so re-render. */
+  panel.querySelectorAll('input[name="packageId"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      draft.packageId = input.value;
+      delete pendingErrors.packageId;
+      saveDraft();
+      render(false);
     });
   });
 
@@ -815,7 +943,7 @@ function validateDetails(silent) {
          selected service (e.g. "Adult" from a 1-on-1) must not pass for a
          service that doesn't offer it. Clear the stale value so the select
          and the draft agree. */
-      const allowed = svc.type === "camp" ? CAMP_AGE_GROUPS : HOURLY_AGE_GROUPS;
+      const allowed = ageGroupsFor(svc);
       if (!allowed.includes(d.ageGroup)) {
         if (d.ageGroup) draft.details.ageGroup = "";
         errors.pAge = "Select an age division.";
@@ -843,48 +971,36 @@ function focusFirstError() {
 
 function handlePayment() {
   pendingErrors = {};
-  const name = panel.querySelector("#cardName").value;
-  const number = panel.querySelector("#cardNumber").value;
-  const expiry = panel.querySelector("#cardExpiry").value.trim();
-  const cvc = panel.querySelector("#cardCvc").value.trim();
+  const mode = checkoutMode();
+  const needsCard = mode !== "redeem";
 
-  if (!name.trim()) pendingErrors.cardName = "Enter the cardholder's name.";
+  /* Card details live only in these locals — never in the draft, never in
+     storage. Only the last 4 digits ever reach a booking record. */
+  let digits = "";
+  if (needsCard) {
+    const name = panel.querySelector("#cardName").value;
+    const number = panel.querySelector("#cardNumber").value;
+    const expiry = panel.querySelector("#cardExpiry").value.trim();
+    const cvc = panel.querySelector("#cardCvc").value.trim();
 
-  const digits = number.replace(/\s/g, "");
-  if (!/^\d{15,16}$/.test(digits)) {
-    pendingErrors.cardNumber = "Card numbers are 15 or 16 digits. Check yours and try again.";
-  }
-
-  const m = expiry.match(/^(\d{2})\/(\d{2})$/);
-  if (!m) {
-    pendingErrors.cardExpiry = "Enter the expiry as MM/YY.";
-  } else {
-    const month = Number(m[1]);
-    const year = 2000 + Number(m[2]);
-    if (month < 1 || month > 12) {
-      pendingErrors.cardExpiry = "That month doesn't exist. Enter the expiry as MM/YY.";
-    } else {
-      const now = new Date();
-      if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) {
-        pendingErrors.cardExpiry = "That card has expired. Use an expiry date in the future.";
-      }
+    if (mode === "purchase" && !selectedPackage()) {
+      pendingErrors.packageId = "Choose a package to continue.";
     }
-  }
 
-  if (!/^\d{3,4}$/.test(cvc)) {
-    pendingErrors.cardCvc = "Enter the 3 or 4 digit code on the back of the card.";
-  }
+    digits = number.replace(/\s/g, "");
+    Object.assign(pendingErrors, validateCard({ name, number, expiry, cvc }));
 
-  if (Object.keys(pendingErrors).length > 0) {
-    const keep = { name, number, expiry, cvc };
-    render(false);
-    // Re-fill what the customer typed (card data never touches the draft).
-    panel.querySelector("#cardName").value = keep.name;
-    panel.querySelector("#cardNumber").value = keep.number;
-    panel.querySelector("#cardExpiry").value = keep.expiry;
-    panel.querySelector("#cardCvc").value = keep.cvc;
-    focusFirstError();
-    return;
+    if (Object.keys(pendingErrors).length > 0) {
+      const keep = { name, number, expiry, cvc };
+      render(false);
+      // Re-fill what the customer typed (card data never touches the draft).
+      panel.querySelector("#cardName").value = keep.name;
+      panel.querySelector("#cardNumber").value = keep.number;
+      panel.querySelector("#cardExpiry").value = keep.expiry;
+      panel.querySelector("#cardCvc").value = keep.cvc;
+      focusFirstError();
+      return;
+    }
   }
 
   const svc = getService(draft.serviceId);
@@ -907,6 +1023,25 @@ function handlePayment() {
   const loc = getLocation(draft.locationId);
   const d = draft.details;
   const isRental = svc.id === "ice-rental";
+  const email = normalizeEmail(d.email);
+  const creditType = creditTypeFor(svc.id);
+
+  /*
+   * Credit services: bank the package first (purchase mode), then confirm the
+   * balance is really there before writing a booking. Doing it in this order
+   * means a booking can never exist without the credit that paid for it.
+   */
+  let purchase = null;
+  if (mode === "purchase") {
+    purchase = purchasePackage(email, creditType, selectedPackage());
+  }
+  if (creditType && balanceOf(email, creditType) < 1) {
+    payBtn.disabled = false;
+    pendingErrors.packageId = "That credit is no longer available. Choose a package to continue.";
+    render(false);
+    focusFirstError();
+    return;
+  }
 
   const record = createBooking({
     serviceId: svc.id,
@@ -936,10 +1071,27 @@ function handlePayment() {
       phone: d.phone.trim()
     },
     deposit: {
-      amount: currentDeposit(),
-      cardLast4: digits.slice(-4)
-    }
+      amount: creditType ? 0 : currentDeposit(),
+      cardLast4: needsCard ? digits.slice(-4) : null
+    },
+    payment: creditType
+      ? { method: "credit", creditType, used: 1, ledgerId: null }
+      : { method: "card", creditType: null, used: null, ledgerId: null }
   });
+
+  /* Spend the credit against the booking now that it has a ref, then point the
+     booking back at the ledger entry so the two sides agree. */
+  if (creditType) {
+    const redemption = redeemCredit(email, creditType, record.ref);
+    setBookingPayment(record.ref, {
+      ledgerId: redemption ? redemption.id : null,
+      purchaseId: purchase ? purchase.id : null
+    });
+  }
+
+  /* Booking with an email signs you in — the confirmation page and the account
+     page pick up from here without asking for it a second time. */
+  signIn(email);
 
   sessionStorage.removeItem(DRAFT_KEY);
   window.location.href = "confirmation.html?ref=" + encodeURIComponent(record.ref);
@@ -986,6 +1138,23 @@ function updateRail() {
   const isRental = draft.serviceId === "ice-rental";
   rail.participantLabel.textContent = isRental ? "Group" : "Participant";
   rail.participant.textContent = isRental ? draft.details.groupName.trim() : draft.details.participantName.trim();
+
+  /* The rail total says what the customer actually owes, which for a credit
+     service is either a session off their balance or the package price. */
+  const railTotal = document.getElementById("railTotalLabel");
+  if (svc && isCreditService(svc.id)) {
+    const mode = checkoutMode();
+    if (mode === "redeem") {
+      if (railTotal) railTotal.textContent = "Paying with";
+      rail.deposit.textContent = "1 credit";
+    } else {
+      const pkg = selectedPackage();
+      if (railTotal) railTotal.textContent = "Package";
+      rail.deposit.textContent = pkg ? formatMoney(packageTotal(pkg)) : "";
+    }
+    return;
+  }
+  if (railTotal) railTotal.textContent = "Deposit";
   const amount = currentDeposit();
   rail.deposit.textContent = amount == null ? "" : formatMoney(amount);
 }

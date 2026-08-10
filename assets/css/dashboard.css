@@ -70,6 +70,30 @@ body.dash { background: var(--gray); }
 }
 .stat__sublabel { font-size: var(--fs-tag); color: var(--ink-45); margin-top: var(--sp-1); }
 
+/* ---- 5.16b View tabs (Bookings / Accounts) ---- */
+
+.dash-tabs { display: flex; gap: 0; margin-top: var(--sp-6); }
+.dash-tab {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-sm);
+  text-transform: uppercase; letter-spacing: var(--ls-btn);
+  color: var(--ink-70);
+  background: var(--white);
+  border: var(--border);
+  border-bottom: 0;
+  padding: var(--sp-3) var(--sp-5);
+  cursor: pointer;
+  transition: color var(--speed) ease, background-color var(--speed) ease;
+}
+.dash-tab + .dash-tab { border-left: 0; }
+.dash-tab:hover { color: var(--black); background: var(--hover-tint); }
+.dash-tab:focus-visible { outline: 2px solid var(--red); outline-offset: -2px; }
+/* The active tab reads as the front sheet: red top edge, no seam below. */
+.dash-tab.is-active {
+  color: var(--black);
+  background: var(--white);
+  box-shadow: inset 0 var(--edge) 0 0 var(--red);
+}
+
 /* ---- 5.17 Filter/search bar ---- */
 
 .filters {
@@ -82,6 +106,12 @@ body.dash { background: var(--gray); }
 .filters .input[type="search"] { flex: 1 1 100%; min-width: 200px; }
 .filters__count { font-size: var(--fs-xs); color: var(--ink-70); margin-left: auto; white-space: nowrap; }
 .filters__hint { flex: 1 1 100%; margin: 0; font-size: var(--fs-tag); color: var(--ink-70); text-align: right; }
+
+/* Accounts view: the service/location/status selects and the CSV export are
+   booking concepts, so only the shared search stays. */
+.filters--accounts select.input,
+.filters--accounts #exportBtn,
+.filters--accounts .filters__hint { display: none; }
 
 /* ---- 5.18 Bookings table ---- */
 
@@ -163,6 +193,24 @@ body.dash { background: var(--gray); }
 .panel__confirm-buttons { display: flex; align-items: center; gap: var(--sp-4); }
 .panel__confirm-buttons .btn { flex: 1; }
 .panel__cancelled-note { margin: 0; font-size: var(--fs-xs); color: var(--ink-70); align-self: center; }
+
+/* ---- 5.20 Accounts table ---- */
+
+.accounts-table { min-width: 900px; }
+
+/* Credit counts, in the table and the panel — a quiet outline so a balance
+   reads as a number, not a status. */
+.pill {
+  display: inline-block;
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-tag);
+  text-transform: uppercase; letter-spacing: var(--ls-btn);
+  color: var(--blue); border: 1px solid var(--blue);
+  padding: 3px 6px; line-height: 1;
+  white-space: nowrap;
+}
+.bookings tbody tr.is-cancelled .pill { color: var(--ink-45); border-color: rgba(57, 57, 57, 0.4); }
+
+.panel__actions .btn--secondary { flex: 1 1 auto; }
 
 /* =========================================================================
    Breakpoints

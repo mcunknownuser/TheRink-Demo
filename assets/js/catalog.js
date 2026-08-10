@@ -4,36 +4,31 @@
  * Data only + pure helpers: no DOM, no storage.
  */
 
+/*
+ * The two facilities RINK actually operates (therink.ca/contact-us). Arenas
+ * like Gateway Recreation Centre and Rutland Arena are rented for camps — they
+ * are venues, not RINK locations, and are deliberately not listed here.
+ */
 export const LOCATIONS = [
   {
     id: "trc",
     name: "RINK Training Centre",
-    city: "Winnipeg, MB",
-    full: "RINK Training Centre — Winnipeg, MB",
+    city: "Oak Bluff, MB",
+    full: "RINK Training Centre — Oak Bluff, MB",
     short: "Training Centre",
-    address: "660 Century St, Winnipeg, MB",
-    phone: "(204) 560-4233",
-    tel: "+12045604233"
-  },
-  {
-    id: "north",
-    name: "RINK North — Gateway Arena",
-    city: "Winnipeg, MB",
-    full: "RINK North — Gateway Arena — Winnipeg, MB",
-    short: "RINK North",
-    address: "1717 Gateway Rd, Winnipeg, MB",
-    phone: "(204) 334-2210",
-    tel: "+12043342210"
+    address: "57 South Landing Drive, Oak Bluff, MB R4G 0C4",
+    phone: "(204) 489-7465",
+    tel: "+12044897465"
   },
   {
     id: "kelowna",
-    name: "RINK Kelowna — Rutland Arena",
+    name: "RINK Kelowna",
     city: "Kelowna, BC",
-    full: "RINK Kelowna — Rutland Arena — Kelowna, BC",
+    full: "RINK Kelowna — Kelowna, BC",
     short: "Kelowna",
-    address: "605 Rutland Rd N, Kelowna, BC",
-    phone: "(250) 765-4188",
-    tel: "+12507654188"
+    address: "103-716 Adams Ct, Kelowna, BC V1X 7S2",
+    phone: "(250) 491-4160",
+    tel: "+12504914160"
   }
 ];
 
@@ -57,13 +52,40 @@ export const SEASON_STARTS = {
 
 export const CAMP_WEEKS = [
   { label: "Aug 10–14, 2026", monday: "2026-08-10", locations: ["trc", "kelowna"] },
-  { label: "Aug 17–21, 2026", monday: "2026-08-17", locations: ["trc", "north", "kelowna"] },
-  { label: "Aug 24–28, 2026", monday: "2026-08-24", locations: ["trc", "north", "kelowna"] },
+  { label: "Aug 17–21, 2026", monday: "2026-08-17", locations: ["trc", "kelowna"] },
+  { label: "Aug 24–28, 2026", monday: "2026-08-24", locations: ["trc", "kelowna"] },
   { label: "March Break — Mar 29 – Apr 2, 2027", monday: "2027-03-29", locations: ["trc", "kelowna"] }
 ];
 
 export const HOURLY_AGE_GROUPS = ["U7", "U9", "U11", "U13", "U15", "U18", "Junior", "Adult"];
 export const CAMP_AGE_GROUPS = ["U7", "U9", "U11", "U13", "U15"];
+
+/* ---- Pricing models (STRATEGY 3.6) ----
+ *
+ * RINK sells two different ways, and the catalog is where that split lives:
+ *
+ *   "credit"  — 1-on-1 instruction. The customer buys a package of sessions up
+ *               front and redeems one per booking. Cheaper per session the more
+ *               they buy. This is what the real EZFacility account does.
+ *   "deposit" — rentals, camps, seasonal registration. Pay per reservation to
+ *               hold the spot; the balance is settled at the front desk.
+ *
+ * Credits are NOT fungible across services: a goalie session credit can't be
+ * spent on a player session, so each credit service names its own creditType.
+ */
+
+export const CREDIT_TYPES = {
+  "player-1on1": { label: "Player 1-on-1 sessions", short: "Player 1-on-1" },
+  "goalie-1on1": { label: "Goalie 1-on-1 sessions", short: "Goalie 1-on-1" }
+};
+
+/* Package tiers: buy more, pay less per session. `unit` is the per-session
+   price at that tier; the first tier is the reference price for savings. */
+const ONE_ON_ONE_PACKAGES = [
+  { id: "single", qty: 1, unit: 199, label: "Single session" },
+  { id: "five", qty: 5, unit: 179, label: "5-session package" },
+  { id: "ten", qty: 10, unit: 169, label: "10-session package" }
+];
 
 export const SERVICES = [
   {
@@ -71,22 +93,26 @@ export const SERVICES = [
     name: "Player 1-on-1 Session",
     type: "hourly",
     group: "sessions",
-    deposit: 50,
-    locations: ["trc", "north", "kelowna"],
+    deposit: null,
+    pricing: { model: "credit", creditType: "player-1on1", packages: ONE_ON_ONE_PACKAGES },
+    minAgeGroup: "U9",
+    locations: ["trc", "kelowna"],
     desc: "One skater, one coach, one hour of ice. Every session is planned around the skater's position and stage of development.",
-    locationsLine: "Training Centre · RINK North · Kelowna",
-    depositLine: "$50 deposit per session"
+    locationsLine: "Training Centre · Kelowna",
+    depositLine: "From $169 per session · sold in packages"
   },
   {
     id: "goalie-1on1",
     name: "Goalie 1-on-1 Session",
     type: "hourly",
     group: "sessions",
-    deposit: 50,
+    deposit: null,
+    pricing: { model: "credit", creditType: "goalie-1on1", packages: ONE_ON_ONE_PACKAGES },
+    minAgeGroup: "U9",
     locations: ["trc", "kelowna"],
     desc: "Individual crease work with a RINK goaltending coach. Movement, tracking, and save selection, built for the goaltender in front of them.",
     locationsLine: "Training Centre · Kelowna",
-    depositLine: "$50 deposit per session"
+    depositLine: "From $169 per session · sold in packages"
   },
   {
     id: "ice-rental",
@@ -94,9 +120,10 @@ export const SERVICES = [
     type: "hourly",
     group: "sessions",
     deposit: { full: 150, half: 75 },
-    locations: ["trc", "north", "kelowna"],
+    pricing: { model: "deposit" },
+    locations: ["trc", "kelowna"],
     desc: "Full or half ice by the hour for teams and groups. Run your own practice, skate, or scrimmage.",
-    locationsLine: "Training Centre · RINK North · Kelowna",
+    locationsLine: "Training Centre · Kelowna",
     depositLine: "$150 deposit full ice · $75 half ice"
   },
   {
@@ -105,9 +132,10 @@ export const SERVICES = [
     type: "seasonal",
     group: "programs",
     deposit: 150,
-    locations: ["trc", "north", "kelowna"],
+    pricing: { model: "deposit" },
+    locations: ["trc", "kelowna"],
     desc: "Seasonal on-ice development from U7 to U15. Each age division follows the RINK development model, from introductory skills to high-performance work.",
-    locationsLine: "Training Centre · RINK North · Kelowna",
+    locationsLine: "Training Centre · Kelowna",
     depositLine: "$150 deposit to register",
     programs: ["U7 Introductory", "U9 Development", "U11 Advanced", "U13 High-Performance", "U15 Elite"],
     seasons: STANDARD_SEASONS
@@ -118,6 +146,7 @@ export const SERVICES = [
     type: "seasonal",
     group: "programs",
     deposit: 150,
+    pricing: { model: "deposit" },
     locations: ["trc"],
     desc: "Season-long goaltending development for U9 to U15. Small groups, position-specific instruction, weekly ice.",
     locationsLine: "Training Centre",
@@ -131,6 +160,7 @@ export const SERVICES = [
     type: "seasonal",
     group: "programs",
     deposit: 200,
+    pricing: { model: "deposit" },
     locations: ["trc", "kelowna"],
     desc: "A structured off-season training block for U13 to U18 skaters. Spring and summer ice that sets up the fall season.",
     locationsLine: "Training Centre · Kelowna",
@@ -144,9 +174,10 @@ export const SERVICES = [
     type: "seasonal",
     group: "programs",
     deposit: 75,
-    locations: ["trc", "north"],
+    pricing: { model: "deposit" },
+    locations: ["trc", "kelowna"],
     desc: "First strides to confident skating. Pre-CanSkate for ages 3–5, CanSkate Stages 1–6 for ages 5–12, and an Adult/Teen stream for 13 and up.",
-    locationsLine: "Training Centre · RINK North",
+    locationsLine: "Training Centre · Kelowna",
     depositLine: "$75 deposit to register",
     programs: ["Pre-CanSkate (ages 3–5)", "CanSkate Stages 1–6 (ages 5–12)", "Adult/Teen (13+)"],
     seasons: STANDARD_SEASONS
@@ -157,9 +188,10 @@ export const SERVICES = [
     type: "seasonal",
     group: "programs",
     deposit: 75,
-    locations: ["north"],
-    desc: "Intro, CanSkate, and Junior Development & Performance streams at RINK North. Edge work, jumps, and program instruction with dedicated coaches.",
-    locationsLine: "RINK North",
+    pricing: { model: "deposit" },
+    locations: ["trc", "kelowna"],
+    desc: "Intro, CanSkate, and Junior Development & Performance streams. Edge work, jumps, and program instruction with dedicated coaches.",
+    locationsLine: "Training Centre · Kelowna",
     depositLine: "$75 deposit to register",
     programs: ["Intro", "CanSkate", "Junior Development & Performance"],
     seasons: STANDARD_SEASONS
@@ -170,9 +202,10 @@ export const SERVICES = [
     type: "camp",
     group: "camps",
     deposit: 125,
-    locations: ["trc", "north", "kelowna"],
+    pricing: { model: "deposit" },
+    locations: ["trc", "kelowna"],
     desc: "Week-long summer and March Break camps, Monday to Friday. Full training days, grouped by age division.",
-    locationsLine: "Training Centre · RINK North · Kelowna",
+    locationsLine: "Training Centre · Kelowna",
     depositLine: "$125 deposit per week"
   },
   {
@@ -246,6 +279,59 @@ export function bookableServices() {
 
 export function servicesInGroup(group) {
   return SERVICES.filter((s) => s.group === group);
+}
+
+/* ---- Pricing lookups ---- */
+
+export function pricingFor(serviceId) {
+  const s = getService(serviceId);
+  return (s && s.pricing) || null;
+}
+
+export function isCreditService(serviceId) {
+  const p = pricingFor(serviceId);
+  return Boolean(p && p.model === "credit");
+}
+
+export function creditTypeFor(serviceId) {
+  const p = pricingFor(serviceId);
+  return p && p.model === "credit" ? p.creditType : null;
+}
+
+/* The service a credit type belongs to — lets the account page sell a package
+   without the customer starting a booking first. */
+export function serviceForCreditType(creditType) {
+  return SERVICES.find((s) => s.pricing && s.pricing.creditType === creditType) || null;
+}
+
+export function packagesFor(serviceId) {
+  const p = pricingFor(serviceId);
+  return p && p.model === "credit" ? p.packages : [];
+}
+
+export function findPackage(serviceId, packageId) {
+  return packagesFor(serviceId).find((p) => p.id === packageId) || null;
+}
+
+export function packageTotal(pkg) {
+  return pkg.qty * pkg.unit;
+}
+
+/* Savings vs. buying the same number of sessions one at a time. */
+export function packageSavings(serviceId, pkg) {
+  const single = packagesFor(serviceId)[0];
+  if (!single || pkg.qty <= 1) return 0;
+  return single.unit * pkg.qty - packageTotal(pkg);
+}
+
+/* Age divisions a service actually accepts. 1-on-1 instruction is U9 and up
+   (therink.ca), so the youngest tiers are filtered out rather than offered
+   and rejected later. */
+export function ageGroupsFor(service) {
+  const base = service.type === "camp" ? CAMP_AGE_GROUPS : HOURLY_AGE_GROUPS;
+  if (!service.minAgeGroup) return base;
+  const from = base.indexOf(service.minAgeGroup);
+  return from <= 0 ? base : base.slice(from);
 }
 
 export function depositFor(serviceId, iceOption) {

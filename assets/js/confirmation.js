@@ -4,7 +4,9 @@
  * read-only recap. Never mutates data; shows a not-found state for bad refs.
  */
 
-import { ensureSeed, findBooking, formatDate, formatMoneyCAD } from "./store.js";
+import { ensureSeed, findBooking, formatDate, formatMoneyCAD, isCreditPaid } from "./store.js";
+import { balanceOf } from "./accounts.js";
+import { CREDIT_TYPES } from "./catalog.js";
 
 ensureSeed();
 
@@ -102,10 +104,23 @@ function renderBooking(b) {
     "Contact",
     row("Contact", b.contact.name) + row("Email", b.contact.email) + row("Phone", b.contact.phone)
   );
-  html += group(
-    "Deposit",
-    row("Deposit paid", formatMoneyCAD(b.deposit.amount) + " · card ending " + b.deposit.cardLast4)
-  );
+  /* Credit-paid bookings settle against the account, not a card, so the
+     payment group reports the balance the customer has left instead. */
+  if (isCreditPaid(b)) {
+    const type = b.payment.creditType;
+    const short = (CREDIT_TYPES[type] || {}).short || "Session";
+    const remaining = balanceOf(b.contact.email, type);
+    html += group(
+      "Payment",
+      row("Paid with", "1 " + short + " session credit") +
+        row("Credits remaining", String(remaining))
+    );
+  } else {
+    html += group(
+      "Deposit",
+      row("Deposit paid", formatMoneyCAD(b.deposit.amount) + " · card ending " + b.deposit.cardLast4)
+    );
+  }
   html += "</div></section>";
 
   html +=
@@ -115,7 +130,8 @@ function renderBooking(b) {
 
   html +=
     '<div class="confirm-actions">' +
-    '<a class="btn btn--secondary" href="index.html">Back to all services' + ICON_ARROW + "</a>" +
+    '<a class="btn btn--primary" href="account.html">Go to My RINK' + ICON_ARROW + "</a>" +
+    '<a class="btn btn--secondary" href="index.html">Back to all services</a>' +
     '<a class="text-link" href="book.html">Book another</a>' +
     "</div>";
 

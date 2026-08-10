@@ -4,11 +4,19 @@
  * Storage is resolved at call time via globalThis so a Node test can stub it.
  */
 
-import { materializeSeed } from "./seed.js";
+import { materializeSeed, materializeCreditSeed } from "./seed.js";
 
 export const BOOKINGS_KEY = "rink.bookings";
 export const SEED_KEY = "rink.seedVersion";
-export const SEED_VERSION = "1";
+
+/* Storage keys for the account layer live here too — store.js owns every key
+   the demo writes, so accounts.js has no constants of its own to drift. */
+export const CREDITS_KEY = "rink.credits";
+export const ACCOUNTS_KEY = "rink.accounts";
+
+/* Bumped to 2 when the credit ledger was introduced: a browser holding v1 data
+   has bookings but no ledger, so it must reseed to get a coherent demo. */
+export const SEED_VERSION = "2";
 
 function storage() {
   return globalThis.localStorage;
@@ -44,17 +52,24 @@ export function saveBookings(list) {
   storage().setItem(BOOKINGS_KEY, JSON.stringify(list));
 }
 
-/* Seed on any page load if the marker is absent or outdated (STRATEGY 4.4). */
+/* Seed on any page load if the marker is absent or outdated (STRATEGY 4.4).
+   Bookings and the credit ledger are seeded together: the ledger references
+   booking refs, so a half-seeded browser would show redemptions against
+   bookings that don't exist. */
 export function ensureSeed(now = new Date()) {
   if (storage().getItem(SEED_KEY) === SEED_VERSION) return false;
   saveBookings(materializeSeed(now));
+  storage().setItem(CREDITS_KEY, JSON.stringify(materializeCreditSeed(now)));
+  storage().removeItem(ACCOUNTS_KEY);
   storage().setItem(SEED_KEY, SEED_VERSION);
   return true;
 }
 
-/* Dashboard "Reset demo data": clear both keys, reseed on the spot. */
+/* Dashboard "Reset demo data": clear every key, reseed on the spot. */
 export function resetDemoData(now = new Date()) {
   storage().removeItem(BOOKINGS_KEY);
+  storage().removeItem(CREDITS_KEY);
+  storage().removeItem(ACCOUNTS_KEY);
   storage().removeItem(SEED_KEY);
   ensureSeed(now);
 }
@@ -107,6 +122,18 @@ export function createBooking(data) {
       currency: "CAD",
       cardLast4: data.deposit.cardLast4
     },
+    /* How the booking was actually paid for. Absent on pre-credit records,
+       which is why `deposit` above stays the required field and this one is
+       optional — see paymentLine(). */
+    payment: data.payment
+      ? {
+          method: data.payment.method,
+          creditType: data.payment.creditType || null,
+          used: data.payment.used == null ? null : Number(data.payment.used),
+          ledgerId: data.payment.ledgerId || null,
+          purchaseId: data.payment.purchaseId || null
+        }
+      : { method: "card", creditType: null, used: null, ledgerId: null, purchaseId: null },
     status: "pending",
     createdAt: new Date().toISOString()
   };
@@ -117,6 +144,20 @@ export function createBooking(data) {
 
 export function findBooking(ref) {
   return getBookings().find((b) => b.ref === ref) || null;
+}
+
+/*
+ * Patch a booking's payment block. Used to point a credit-paid booking at the
+ * ledger entry that paid for it: the redemption needs the booking ref and the
+ * booking needs the entry id, so one of the two links is written second.
+ */
+export function setBookingPayment(ref, patch) {
+  const bookings = getBookings();
+  const record = bookings.find((b) => b.ref === ref);
+  if (!record) return null;
+  record.payment = { ...record.payment, ...patch };
+  saveBookings(bookings);
+  return record;
 }
 
 /*
@@ -189,6 +230,32 @@ export function depositLine(booking) {
   return formatMoneyCAD(booking.deposit.amount) + " · card ending " + booking.deposit.cardLast4;
 }
 
+/* Was this booking paid with a session credit rather than a deposit? */
+export function isCreditPaid(booking) {
+  return Boolean(booking.payment && booking.payment.method === "credit");
+}
+
+/*
+ * One line describing how a booking was paid, for the dashboard, confirmation
+ * page and CSV. Handles both shapes: credit redemptions and card deposits.
+ * Records written before the credit layer have no `payment` field at all and
+ * fall through to the deposit line unchanged.
+ */
+export function paymentLine(booking) {
+  if (isCreditPaid(booking)) {
+    const n = booking.payment.used || 1;
+    return n === 1 ? "1 session credit" : n + " session credits";
+  }
+  return depositLine(booking);
+}
+
+/* The money value of a booking for totals and sorting. Credit-paid bookings
+   contribute nothing here — the revenue was recognized when the package was
+   bought, and counting it twice would inflate every dashboard number. */
+export function bookingAmount(booking) {
+  return isCreditPaid(booking) ? 0 : booking.deposit.amount || 0;
+}
+
 /* One-line schedule per booking type (dashboard table, rail, CSV). */
 export function formatScheduleLine(booking) {
   const s = booking.schedule || {};
@@ -215,6 +282,7 @@ export const CSV_COLUMNS = [
   "Location",
   "Schedule",
   "Participant",
+  "Paid with",
   "Deposit",
   "Status",
   "Email",
@@ -240,7 +308,8 @@ export function bookingsToCsv(bookings) {
         b.locationName,
         formatScheduleLine(b),
         participantLabel(b),
-        formatMoney(b.deposit.amount),
+        paymentLine(b),
+        formatMoney(bookingAmount(b)),
         b.status,
         b.contact.email,
         b.contact.phone

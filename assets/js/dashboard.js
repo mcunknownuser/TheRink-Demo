@@ -5,7 +5,7 @@
  * filtered rows, and a two-step "Reset demo data" control. No auth by design.
  */
 
-import { bookableServices, LOCATIONS, getLocation, scheduleSortValue } from "./catalog.js";
+import { bookableServices, LOCATIONS, getLocation, scheduleSortValue, CREDIT_TYPES } from "./catalog.js";
 import {
   ensureSeed,
   resetDemoData,
@@ -18,9 +18,20 @@ import {
   formatMoneyCAD,
   formatScheduleLine,
   participantLabel,
-  depositLine,
+  paymentLine,
+  isCreditPaid,
+  bookingAmount,
   bookingsToCsv
 } from "./store.js";
+import {
+  allAccounts,
+  accountFor,
+  applyCancellationPolicy,
+  compCredit,
+  bookingStart,
+  hoursUntil,
+  CANCELLATION_NOTICE_HOURS
+} from "./accounts.js";
 
 ensureSeed();
 
@@ -41,6 +52,13 @@ const els = {
   table: document.getElementById("bookingsTable"),
   body: document.getElementById("bookingsBody"),
   empty: document.getElementById("emptyState"),
+  tabs: document.querySelectorAll(".dash-tab"),
+  filters: document.querySelector(".filters"),
+  tableWrap: document.querySelector(".table-wrap"),
+  accountsWrap: document.getElementById("accountsWrap"),
+  accountsTable: document.getElementById("accountsTable"),
+  accountsBody: document.getElementById("accountsBody"),
+  accountsEmpty: document.getElementById("accountsEmpty"),
   scrim: document.getElementById("panelScrim"),
   panel: document.getElementById("detailPanel"),
   panelRef: document.getElementById("panelRef"),
@@ -60,6 +78,12 @@ let sortKey = "created";
 let sortDir = "desc";
 let openRef = null;
 let cancelArmed = false;
+
+/* Which table is showing, and — when the slide-over is open — whether it is
+   showing a booking or a customer account. */
+let view = "bookings";
+let openEmail = null;
+let compArmed = null; // creditType awaiting confirmation
 
 const STATUS_LABELS = { pending: "Pending", confirmed: "Confirmed", cancelled: "Cancelled" };
 
@@ -123,7 +147,7 @@ function sortedBookings(list) {
   const key = (b) => {
     if (sortKey === "created") return b.createdAt;
     if (sortKey === "schedule") return scheduleSortValue(b);
-    return b.deposit.amount;
+    return bookingAmount(b);
   };
   return [...list].sort((a, b) => {
     const ka = key(a);
@@ -145,7 +169,9 @@ function renderStats() {
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const week = bookings.filter((b) => b.status !== "cancelled" && new Date(b.createdAt).getTime() >= weekAgo);
   const live = bookings.filter((b) => b.status === "pending" || b.status === "confirmed");
-  const deposits = live.reduce((sum, b) => sum + b.deposit.amount, 0);
+  /* Credit-paid bookings contribute nothing: that money was banked when the
+     package was bought, so counting it again would double the total. */
+  const deposits = live.reduce((sum, b) => sum + bookingAmount(b), 0);
   els.statWeek.textContent = String(week.length);
   els.statDeposits.textContent = formatMoneyCAD(deposits);
   els.statPending.textContent = String(bookings.filter((b) => b.status === "pending").length);
@@ -195,7 +221,8 @@ function renderTable() {
         "<td>" + esc(loc ? loc.name : b.locationName) + "</td>" +
         "<td>" + esc(formatScheduleLine(b)) + "</td>" +
         "<td>" + esc(participantLabel(b)) + "</td>" +
-        '<td class="num">' + esc(formatMoney(b.deposit.amount)) + "</td>" +
+        '<td>' + (isCreditPaid(b) ? '<span class="pill">' + esc(paymentLine(b)) + "</span>" : "Card") + "</td>" +
+        '<td class="num">' + esc(formatMoney(bookingAmount(b))) + "</td>" +
         "<td>" + badgeHtml(b.status) + "</td>" +
         "</tr>"
       );
@@ -212,6 +239,94 @@ function renderTable() {
     });
   });
 }
+
+/* ---- Accounts table ---- */
+
+/* Accounts are matched on name and email only — the booking-level filters
+   (service, location, status) don't apply to a customer. */
+function filterAccounts(list) {
+  const query = els.search.value.trim().toLowerCase();
+  if (!query) return list;
+  return list.filter((a) => (a.profile.name + " " + a.email).toLowerCase().includes(query));
+}
+
+function creditSummary(account) {
+  const held = account.balances.filter((b) => b.balance !== 0);
+  if (!held.length) return "—";
+  return held.map((b) => b.balance + " × " + b.short).join(", ");
+}
+
+function renderAccountsTable() {
+  /* allAccounts() walks bookings and the ledger, so derive once per render. */
+  const all = allAccounts().filter((a) => a.exists);
+  const rows = filterAccounts(all);
+
+  els.count.textContent = "Showing " + rows.length + " of " + all.length + " accounts";
+  els.clearFilters.hidden = !els.search.value.trim();
+
+  if (rows.length === 0) {
+    els.accountsTable.hidden = true;
+    els.accountsEmpty.hidden = false;
+    els.accountsEmpty.innerHTML =
+      "<h3>No accounts match your search.</h3>" +
+      '<button type="button" class="btn btn--secondary btn--small" id="accountsClearBtn">Clear search</button>';
+    els.accountsEmpty.querySelector("#accountsClearBtn").addEventListener("click", clearAllFilters);
+    return;
+  }
+
+  els.accountsTable.hidden = false;
+  els.accountsEmpty.hidden = true;
+  els.accountsEmpty.innerHTML = "";
+
+  els.accountsBody.innerHTML = rows
+    .map((a) => {
+      const last = a.bookings[0];
+      const hasCredits = a.balances.some((b) => b.balance > 0);
+      return (
+        '<tr data-email="' + esc(a.email) + '"' + (a.email === openEmail ? ' class="is-open"' : "") + ' tabindex="0">' +
+        '<td class="ref">' + esc(a.profile.name || "—") + "</td>" +
+        "<td>" + esc(a.email) + "</td>" +
+        "<td>" + esc(a.profile.phone || "—") + "</td>" +
+        '<td class="num">' + a.bookings.length + "</td>" +
+        "<td>" + (hasCredits ? '<span class="pill">' + esc(creditSummary(a)) + "</span>" : esc(creditSummary(a))) + "</td>" +
+        '<td class="num">' + esc(formatMoney(a.lifetimeSpend)) + "</td>" +
+        "<td>" + esc(last ? formatDateTime(last.createdAt) : "—") + "</td>" +
+        "</tr>"
+      );
+    })
+    .join("");
+
+  els.accountsBody.querySelectorAll("tr").forEach((tr) => {
+    tr.addEventListener("click", () => openAccountPanel(tr.dataset.email));
+    tr.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openAccountPanel(tr.dataset.email);
+      }
+    });
+  });
+}
+
+/* ---- View switching ---- */
+
+function setView(next) {
+  view = next;
+  els.tabs.forEach((tab) => {
+    const active = tab.dataset.view === view;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  /* The service/location/status selects and CSV export are booking concepts;
+     search is shared, so only its placeholder changes. */
+  els.filters.classList.toggle("filters--accounts", view === "accounts");
+  els.search.placeholder = view === "accounts" ? "Name or email" : "Ref, contact, or participant";
+  els.tableWrap.hidden = view !== "bookings";
+  els.accountsWrap.hidden = view !== "accounts";
+  if (!els.panel.hidden) closePanel();
+  refresh();
+}
+
+els.tabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
 
 /* ---- Sorting ---- */
 
@@ -289,12 +404,29 @@ function renderPanel() {
     panelRow("Email", '<a href="mailto:' + esc(b.contact.email) + '">' + esc(b.contact.email) + "</a>") +
     panelRow("Phone", '<a href="tel:+1' + esc(phoneDigits) + '">' + esc(b.contact.phone) + "</a>");
 
+  /* Payment: credit-paid bookings show the balance context a front desk needs
+     when the customer is on the phone asking about it. */
+  let payRows = panelRow("Paid with", esc(paymentLine(b)));
+  if (isCreditPaid(b)) {
+    const account = accountFor(b.contact.email);
+    const held = account ? account.balances.find((x) => x.creditType === b.payment.creditType) : null;
+    if (held) payRows += panelRow("Balance now", esc(held.balance + " " + held.short + " credits"));
+    payRows += panelRow(
+      "Account",
+      '<button type="button" class="text-link" data-open-account="' + esc(b.contact.email) + '">View account</button>'
+    );
+  }
+
   els.panelBody.innerHTML =
     panelSection("Schedule", schedRows) +
     panelSection("Participant", partRows) +
     panelSection("Contact", contactRows) +
-    panelSection("Deposit", panelRow("Deposit", esc(depositLine(b)))) +
+    panelSection("Payment", payRows) +
     panelSection("Meta", panelRow("Booked", esc(formatDateTime(b.createdAt))));
+
+  els.panelBody.querySelectorAll("[data-open-account]").forEach((btn) => {
+    btn.addEventListener("click", () => openAccountPanel(btn.dataset.openAccount));
+  });
 
   renderPanelActions(b);
 }
@@ -308,15 +440,27 @@ function renderPanelActions(b) {
   }
 
   if (cancelArmed) {
+    /* Spell out the credit consequence before the click, not after — the
+       24-hour rule is the thing a manager gets asked to override. */
+    let consequence = "Cancelled bookings can't be reactivated, and the deposit is excluded from totals.";
+    if (isCreditPaid(b)) {
+      const start = bookingStart(b);
+      const outside = !start || hoursUntil(start) >= CANCELLATION_NOTICE_HOURS;
+      consequence = outside
+        ? "Cancelled bookings can't be reactivated. This is outside the 24-hour window, so the session credit returns to the customer's account."
+        : "Cancelled bookings can't be reactivated. This is inside the 24-hour window, so the session credit is used and will not return.";
+    }
     els.panelActions.innerHTML =
-      '<p class="panel__confirm-text">Cancel ' + esc(b.ref) +
-      "? Cancelled bookings can't be reactivated, and the deposit is excluded from totals.</p>" +
+      '<p class="panel__confirm-text">Cancel ' + esc(b.ref) + "? " + esc(consequence) + "</p>" +
       '<div class="panel__confirm-buttons">' +
       '<button type="button" class="btn btn--danger btn--small is-armed" id="cancelYesBtn">Yes, cancel it</button>' +
       '<button type="button" class="text-link" id="cancelNoBtn">Keep booking</button>' +
       "</div>";
     els.panelActions.querySelector("#cancelYesBtn").addEventListener("click", () => {
+      /* Status first, then the ledger consequence, so a booking is never left
+         cancelled-but-unsettled if the policy call throws. */
       updateStatus(b.ref, "cancelled");
+      applyCancellationPolicy(b);
       cancelArmed = false;
       refresh();
     });
@@ -347,28 +491,178 @@ function renderPanelActions(b) {
   });
 }
 
+/* ---- Account panel ---- */
+
+const LEDGER_KINDS = {
+  purchase: "Package purchased",
+  redemption: "Session booked",
+  forfeit: "Session forfeited",
+  refund: "Credit returned",
+  comp: "Credit added by front desk",
+  adjustment: "Adjustment"
+};
+
+function renderAccountPanel() {
+  const account = accountFor(openEmail);
+  if (!account || !account.exists) {
+    closePanel();
+    return;
+  }
+
+  els.panelRef.textContent = account.profile.name || account.email;
+  els.panelBadge.className = "badge badge--confirmed";
+  els.panelBadge.textContent = account.totalCredits + " credits";
+
+  let phoneDigits = (account.profile.phone || "").replace(/\D/g, "");
+  if (phoneDigits.length === 11 && phoneDigits.startsWith("1")) phoneDigits = phoneDigits.slice(1);
+
+  const contactRows =
+    panelRow("Email", '<a href="mailto:' + esc(account.email) + '">' + esc(account.email) + "</a>") +
+    (phoneDigits
+      ? panelRow("Phone", '<a href="tel:+1' + esc(phoneDigits) + '">' + esc(account.profile.phone) + "</a>")
+      : "") +
+    panelRow("Lifetime spend", esc(formatMoneyCAD(account.lifetimeSpend)));
+
+  let balanceRows = "";
+  if (account.balances.length) {
+    for (const b of account.balances) balanceRows += panelRow(b.short, esc(String(b.balance)));
+  } else {
+    balanceRows = panelRow("Credits", "None");
+  }
+
+  let bookingRows = "";
+  for (const b of account.bookings.slice(0, 8)) {
+    bookingRows += panelRow(
+      formatScheduleLine(b) || b.serviceName,
+      '<button type="button" class="text-link" data-open-booking="' + esc(b.ref) + '">' +
+        esc(b.ref) + "</button> · " + esc(STATUS_LABELS[b.status])
+    );
+  }
+  if (account.bookings.length > 8) {
+    bookingRows += panelRow("", esc("+ " + (account.bookings.length - 8) + " more"));
+  }
+  if (!bookingRows) bookingRows = panelRow("Bookings", "None");
+
+  let ledgerRows = "";
+  for (const e of account.entries.slice(0, 10)) {
+    const detail = e.note || (e.bookingRef ? "Booking " + e.bookingRef : "");
+    const kind =
+      e.kind === "redemption" && !e.bookingRef ? "Session redeemed" : LEDGER_KINDS[e.kind] || e.kind;
+    ledgerRows += panelRow(
+      formatDateTime(e.at),
+      '<span class="ledger__delta' + (e.qty > 0 ? " is-positive" : "") + '">' +
+        (e.qty > 0 ? "+" : "") + e.qty + "</span> " +
+        esc(kind) +
+        (detail ? '<br><span class="ledger__note">' + esc(detail) + "</span>" : "")
+    );
+  }
+
+  els.panelBody.innerHTML =
+    panelSection("Contact", contactRows) +
+    panelSection("Credit balances", balanceRows) +
+    panelSection("Bookings", bookingRows) +
+    (ledgerRows ? panelSection("Credit history", ledgerRows) : "");
+
+  els.panelBody.querySelectorAll("[data-open-booking]").forEach((btn) => {
+    btn.addEventListener("click", () => openPanel(btn.dataset.openBooking));
+  });
+
+  renderAccountActions(account);
+}
+
+/*
+ * The front desk's escape hatch: hand a credit back when the policy said no
+ * but the situation says yes (coach illness, arena closure, goodwill). Every
+ * comp lands in the ledger with its reason, so the balance stays explainable.
+ */
+function renderAccountActions(account) {
+  els.panelActions.classList.toggle("panel__actions--confirm", Boolean(compArmed));
+
+  const types = account.balances.length
+    ? account.balances.map((b) => b.creditType)
+    : Object.keys(CREDIT_TYPES);
+
+  if (compArmed) {
+    const meta = CREDIT_TYPES[compArmed] || {};
+    els.panelActions.innerHTML =
+      '<p class="panel__confirm-text">Add one ' + esc(meta.short || compArmed) +
+      " credit to " + esc(account.profile.name || account.email) + "? It will show in their credit history as a front-desk addition.</p>" +
+      '<div class="panel__confirm-buttons">' +
+      '<button type="button" class="btn btn--primary btn--small" id="compYesBtn">Yes, add credit</button>' +
+      '<button type="button" class="text-link" id="compNoBtn">Cancel</button>' +
+      "</div>";
+    els.panelActions.querySelector("#compYesBtn").addEventListener("click", () => {
+      compCredit(account.email, compArmed, "Credit added by front desk");
+      compArmed = null;
+      refresh();
+    });
+    els.panelActions.querySelector("#compNoBtn").addEventListener("click", () => {
+      compArmed = null;
+      renderAccountPanel();
+    });
+    return;
+  }
+
+  els.panelActions.innerHTML = types
+    .map(
+      (t) =>
+        '<button type="button" class="btn btn--secondary btn--small" data-comp="' + esc(t) + '">Add ' +
+        esc((CREDIT_TYPES[t] || {}).short || t) + " credit</button>"
+    )
+    .join("");
+
+  els.panelActions.querySelectorAll("[data-comp]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      compArmed = btn.dataset.comp;
+      renderAccountPanel();
+    });
+  });
+}
+
+function openAccountPanel(email) {
+  openRef = null;
+  openEmail = email;
+  cancelArmed = false;
+  compArmed = null;
+  renderAccountPanel();
+  els.scrim.hidden = false;
+  els.panel.hidden = false;
+  els.panelClose.focus();
+  renderCurrentTable();
+}
+
 function openPanel(ref) {
   openRef = ref;
+  openEmail = null;
   cancelArmed = false;
+  compArmed = null;
   renderPanel();
   els.scrim.hidden = false;
   els.panel.hidden = false;
   els.panelClose.focus();
-  renderTable(); // repaint the is-open row highlight
+  renderCurrentTable(); // repaint the is-open row highlight
 }
 
 function closePanel() {
   const refToFocus = openRef;
+  const emailToFocus = openEmail;
   openRef = null;
+  openEmail = null;
   cancelArmed = false;
+  compArmed = null;
   els.scrim.hidden = true;
   els.panel.hidden = true;
-  renderTable();
-  /* Rows are rebuilt on every render, so re-resolve the row by ref rather
+  renderCurrentTable();
+  /* Rows are rebuilt on every render, so re-resolve the row by key rather
      than holding a detached element; fall back to the table itself. */
-  const row = refToFocus ? els.body.querySelector('tr[data-ref="' + CSS.escape(refToFocus) + '"]') : null;
+  let row = null;
+  if (view === "bookings" && refToFocus) {
+    row = els.body.querySelector('tr[data-ref="' + CSS.escape(refToFocus) + '"]');
+  } else if (view === "accounts" && emailToFocus) {
+    row = els.accountsBody.querySelector('tr[data-email="' + CSS.escape(emailToFocus) + '"]');
+  }
   if (row) row.focus();
-  else els.table.focus();
+  else (view === "accounts" ? els.accountsTable : els.table).focus();
 }
 
 els.panelClose.addEventListener("click", closePanel);
@@ -384,13 +678,14 @@ function clearAllFilters() {
   els.filterLocation.value = "";
   els.filterStatus.value = "";
   els.search.value = "";
-  renderTable();
+  renderCurrentTable();
 }
 
 [els.filterService, els.filterLocation, els.filterStatus].forEach((sel) =>
-  sel.addEventListener("change", renderTable)
+  sel.addEventListener("change", renderCurrentTable)
 );
-els.search.addEventListener("input", renderTable);
+/* Search is shared by both views; the selects only apply to bookings. */
+els.search.addEventListener("input", renderCurrentTable);
 els.clearFilters.addEventListener("click", clearAllFilters);
 
 /* ---- CSV export (currently filtered rows) ---- */
@@ -422,7 +717,7 @@ els.resetCancel.addEventListener("click", () => {
 els.resetConfirm.addEventListener("click", () => {
   resetDemoData();
   els.resetStrip.hidden = true;
-  if (openRef) closePanel();
+  if (openRef || openEmail) closePanel();
   clearAllFilters();
   refresh();
   els.resetBtn.focus();
@@ -430,10 +725,16 @@ els.resetConfirm.addEventListener("click", () => {
 
 /* ---- Orchestration ---- */
 
+function renderCurrentTable() {
+  if (view === "accounts") renderAccountsTable();
+  else renderTable();
+}
+
 function refresh() {
   renderStats();
-  renderTable();
+  renderCurrentTable();
   if (openRef) renderPanel();
+  else if (openEmail) renderAccountPanel();
 }
 
 refresh();

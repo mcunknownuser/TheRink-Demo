@@ -58,6 +58,11 @@
       </div>
     </section>
 
+    <div class="dash-tabs" role="tablist" aria-label="Dashboard views">
+      <button type="button" class="dash-tab is-active" id="tabBookings" role="tab" aria-selected="true" data-view="bookings">Bookings</button>
+      <button type="button" class="dash-tab" id="tabAccounts" role="tab" aria-selected="false" data-view="accounts">Accounts</button>
+    </div>
+
     <section class="filters" aria-label="Filter and search bookings">
       <label class="visually-hidden" for="filterService">Service</label>
       <select class="input" id="filterService">
@@ -96,6 +101,7 @@
               <button type="button" class="sort-btn">Schedule</button>
             </th>
             <th scope="col">Participant</th>
+            <th scope="col">Paid with</th>
             <th scope="col" class="is-sortable" data-sort="deposit">
               <button type="button" class="sort-btn">Deposit</button>
             </th>
@@ -105,6 +111,24 @@
         <tbody id="bookingsBody"></tbody>
       </table>
       <div class="empty" id="emptyState" hidden></div>
+    </div>
+
+    <div class="table-wrap" id="accountsWrap" hidden>
+      <table class="bookings accounts-table" id="accountsTable" tabindex="-1">
+        <thead>
+          <tr>
+            <th scope="col">Customer</th>
+            <th scope="col">Email</th>
+            <th scope="col">Phone</th>
+            <th scope="col" class="num">Bookings</th>
+            <th scope="col">Credits</th>
+            <th scope="col" class="num">Lifetime</th>
+            <th scope="col">Last activity</th>
+          </tr>
+        </thead>
+        <tbody id="accountsBody"></tbody>
+      </table>
+      <div class="empty" id="accountsEmpty" hidden></div>
     </div>
 
   </main>

@@ -738,6 +738,154 @@ fieldset.option-set legend {
 .confirm-actions { margin-top: var(--sp-6); display: flex; align-items: center; gap: var(--sp-5); flex-wrap: wrap; }
 
 /* =========================================================================
+   5.20 Account & credits (DESIGN §5.20)
+   Customer-side components for "My RINK": sign-in, credit balances, the
+   booking list and the credit ledger. Same five colors, same zero radius.
+   ========================================================================= */
+
+.container--narrow { max-width: 760px; }
+
+.account-page { min-height: 50vh; }
+
+/* ---- Account header ---- */
+
+.account-head { background: var(--black); padding: var(--sp-7) 0 var(--sp-6); }
+.account-head__kicker {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-cap);
+  text-transform: uppercase; letter-spacing: var(--ls-kick); color: var(--red);
+  margin: 0 0 var(--sp-2);
+}
+.account-head h1 { font-size: var(--fs-h1); color: var(--white); margin-bottom: var(--sp-1); }
+.account-head__email { font-size: var(--fs-sm); color: var(--white-55); margin: 0 0 var(--sp-5); }
+.account-head__stats {
+  display: flex; flex-wrap: wrap; gap: var(--sp-5);
+  border-top: 1px solid var(--white-line);
+  padding-top: var(--sp-4); margin-bottom: var(--sp-4);
+}
+.account-head__stats span {
+  font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: var(--ls-btn);
+  color: var(--white-55);
+}
+.account-head__stats strong {
+  display: block; font-family: var(--font-head); font-weight: 600;
+  font-size: var(--fs-h2); color: var(--white); letter-spacing: 0;
+}
+.text-link--on-dark { color: var(--white); }
+.text-link--on-dark:hover { color: var(--white); }
+
+/* ---- Sign-in ---- */
+
+.signin { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-4); margin-bottom: var(--sp-5); }
+.signin .field { flex: 1 1 260px; margin-bottom: 0; }
+
+/* Demo convenience: click straight into a seeded account. */
+.account-picker { list-style: none; margin: 0 0 var(--sp-6); padding: 0; display: grid; gap: var(--sp-2); }
+.account-picker__row {
+  display: grid; grid-template-columns: 1fr; gap: 2px;
+  width: 100%; text-align: left;
+  background: var(--white); border: 1px solid rgba(57, 57, 57, 0.4);
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer; font: inherit;
+  transition: border-color var(--speed) ease, background-color var(--speed) ease;
+}
+.account-picker__row:hover { border-color: var(--black); background: var(--hover-tint); }
+.account-picker__row:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.account-picker__name {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-sm);
+  text-transform: uppercase; letter-spacing: var(--ls-head); color: var(--black);
+}
+.account-picker__email { font-size: var(--fs-xs); color: var(--ink-70); }
+.account-picker__detail {
+  font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: var(--ls-btn);
+  color: var(--red);
+}
+
+/* ---- Credit balance tiles ---- */
+
+.credit-grid { display: grid; grid-template-columns: 1fr; gap: var(--sp-4); margin-bottom: var(--sp-6); }
+.credit-tile {
+  background: var(--white);
+  border: var(--border);
+  border-top: var(--edge) solid var(--red);
+  padding: var(--sp-5);
+}
+.credit-tile__value {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-stat);
+  line-height: 1; color: var(--red); margin: 0 0 var(--sp-2);
+}
+.credit-tile__label {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-cap);
+  text-transform: uppercase; letter-spacing: var(--ls-btn); color: var(--black); margin: 0;
+}
+.credit-tile__sublabel { font-size: var(--fs-xs); color: var(--ink-70); margin: var(--sp-1) 0 var(--sp-4); }
+.credit-tile__actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+
+/* Inline package purchase, opened from a tile */
+.buy-form { border-top: 1px solid var(--line-soft); margin-top: var(--sp-5); padding-top: var(--sp-4); }
+.buy-form h4 {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-cap);
+  text-transform: uppercase; letter-spacing: var(--ls-btn); color: var(--black);
+  margin: 0 0 var(--sp-3);
+}
+.buy-form .option-list { margin-bottom: var(--sp-4); }
+.buy-form__controls { display: flex; align-items: center; gap: var(--sp-4); margin-top: var(--sp-4); }
+
+/* ---- Credit-paid checkout block (wizard step 5) ---- */
+
+.credit-pay { border: var(--border); border-left: var(--edge) solid var(--red); margin-bottom: var(--sp-4); }
+.credit-pay__row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-sm);
+}
+.credit-pay__row:last-child { border-bottom: 0; }
+.credit-pay__row--total { background: var(--red-tint); font-weight: 600; }
+.credit-pay__num { font-family: var(--font-head); font-weight: 600; font-size: var(--fs-h3); color: var(--red); }
+
+/* ---- Booking list ---- */
+
+.booking-list { list-style: none; margin: 0 0 var(--sp-6); padding: 0; display: grid; gap: var(--sp-4); }
+.booking-card { background: var(--white); border: var(--border); padding: var(--sp-5); }
+.booking-card.is-cancelled { color: var(--ink-45); border-color: var(--line-soft); }
+.booking-card.is-cancelled h3 { color: var(--ink-45); }
+.booking-card__head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-4);
+  margin-bottom: var(--sp-2);
+}
+.booking-card__head h3 { margin: 0; }
+.booking-card__schedule { font-size: var(--fs-sm); font-weight: 600; margin: 0 0 var(--sp-1); }
+.booking-card__meta { font-size: var(--fs-xs); color: var(--ink-70); margin: 0 0 var(--sp-1); }
+.booking-card .text-link { margin-top: var(--sp-2); display: inline-block; }
+
+/* ---- Credit ledger ---- */
+
+.ledger__head {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-cap);
+  text-transform: uppercase; letter-spacing: var(--ls-btn); color: var(--ink-70);
+  margin: var(--sp-5) 0 var(--sp-2);
+}
+.ledger { width: 100%; border-collapse: collapse; min-width: 520px; }
+.ledger th {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-tag);
+  text-transform: uppercase; letter-spacing: var(--ls-btn); color: var(--ink-70);
+  text-align: left; padding: var(--sp-2) var(--sp-3);
+  border-bottom: 2px solid var(--black);
+  white-space: nowrap;
+}
+.ledger td {
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-xs);
+  vertical-align: top;
+}
+.ledger th.num, .ledger td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ledger__kind { font-weight: 600; color: var(--ink); }
+.ledger__note { color: var(--ink-70); }
+.ledger__delta { font-weight: 700; color: var(--ink-70); }
+.ledger__delta.is-positive { color: var(--blue); }
+
+/* =========================================================================
    Breakpoint: 640px+
    ========================================================================= */
 
@@ -758,7 +906,7 @@ fieldset.option-set legend {
   .band { padding: var(--sp-9) 0; }
 
   .card-grid { grid-template-columns: repeat(2, 1fr); }
-  .locations-grid { grid-template-columns: repeat(3, 1fr); }
+  .locations-grid { grid-template-columns: repeat(2, 1fr); }
   .how-grid { grid-template-columns: repeat(3, 1fr); }
 
   .field-row { grid-template-columns: 1fr 1fr; }
@@ -770,6 +918,11 @@ fieldset.option-set legend {
   .step-panel { padding: var(--sp-6); }
 
   .confirm-page { padding: var(--sp-8) var(--sp-5); }
+
+  .account-picker__row { grid-template-columns: 1.2fr 1.6fr auto; align-items: baseline; gap: var(--sp-4); }
+  .account-picker__detail { text-align: right; }
+  .credit-grid { grid-template-columns: repeat(2, 1fr); }
+  .booking-list { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* =========================================================================
