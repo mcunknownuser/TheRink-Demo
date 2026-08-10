@@ -1,2 +1,7 @@
+# Build output — regenerate with `python3 tools/build-artifact.py`.
+# Committing it would leave a stale 900 KB bundle in the repo the moment the
+# site changes; the script is the source of truth, not its output.
+dist/
+
+# macOS
 .DS_Store
-**/.DS_Store
