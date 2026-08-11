@@ -846,7 +846,17 @@ function clearAllFilters() {
   refresh(); // stats and the scope strip both reflect the cleared scope
 }
 
-els.stats.forEach((btn) => btn.addEventListener("click", () => setStatScope(btn.dataset.stat)));
+/* Tiles are divs with role="button" (to keep the original <p> markup), so
+   Enter/Space activation is wired by hand. */
+els.stats.forEach((btn) => {
+  btn.addEventListener("click", () => setStatScope(btn.dataset.stat));
+  btn.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setStatScope(btn.dataset.stat);
+    }
+  });
+});
 els.scopeClear.addEventListener("click", () => {
   statScope = null;
   refresh();

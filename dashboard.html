@@ -37,26 +37,26 @@
   <main class="dash-main">
 
     <section class="stats" aria-label="Summary statistics">
-      <button type="button" class="stat" data-stat="week" aria-pressed="false">
-        <span class="stat__value" id="statWeek">0</span>
-        <span class="stat__label">Bookings this week</span>
-        <span class="stat__sublabel">Last 7 days, excluding cancelled</span>
-      </button>
-      <button type="button" class="stat" data-stat="deposits" aria-pressed="false">
-        <span class="stat__value" id="statDeposits">$0 CAD</span>
-        <span class="stat__label">Deposits collected</span>
-        <span class="stat__sublabel">Pending and confirmed</span>
-      </button>
-      <button type="button" class="stat stat--attention" data-stat="pending" aria-pressed="false">
-        <span class="stat__value" id="statPending">0</span>
-        <span class="stat__label">Pending</span>
-        <span class="stat__sublabel">Waiting on confirmation</span>
-      </button>
-      <button type="button" class="stat" data-stat="active" aria-pressed="false">
-        <span class="stat__value" id="statActive">0</span>
-        <span class="stat__label">Active bookings</span>
-        <span class="stat__sublabel">All non-cancelled</span>
-      </button>
+      <div class="stat" data-stat="week" role="button" tabindex="0" aria-pressed="false">
+        <p class="stat__value" id="statWeek">0</p>
+        <p class="stat__label">Bookings this week</p>
+        <p class="stat__sublabel">Last 7 days, excluding cancelled</p>
+      </div>
+      <div class="stat" data-stat="deposits" role="button" tabindex="0" aria-pressed="false">
+        <p class="stat__value" id="statDeposits">$0 CAD</p>
+        <p class="stat__label">Deposits collected</p>
+        <p class="stat__sublabel">Pending and confirmed</p>
+      </div>
+      <div class="stat stat--attention" data-stat="pending" role="button" tabindex="0" aria-pressed="false">
+        <p class="stat__value" id="statPending">0</p>
+        <p class="stat__label">Pending</p>
+        <p class="stat__sublabel">Waiting on confirmation</p>
+      </div>
+      <div class="stat" data-stat="active" role="button" tabindex="0" aria-pressed="false">
+        <p class="stat__value" id="statActive">0</p>
+        <p class="stat__label">Active bookings</p>
+        <p class="stat__sublabel">All non-cancelled</p>
+      </div>
     </section>
 
     <section class="scope" id="scopeStrip" role="region" aria-label="Selected statistic" hidden>
