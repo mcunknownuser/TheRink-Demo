@@ -39,11 +39,6 @@ ensureSeed();
 
 const els = {
   stats: document.querySelectorAll(".stat[data-stat]"),
-  scopeStrip: document.getElementById("scopeStrip"),
-  scopeTitle: document.getElementById("scopeTitle"),
-  scopeBasis: document.getElementById("scopeBasis"),
-  scopeFacts: document.getElementById("scopeFacts"),
-  scopeClear: document.getElementById("scopeClearBtn"),
   statWeek: document.getElementById("statWeek"),
   statDeposits: document.getElementById("statDeposits"),
   statPending: document.getElementById("statPending"),
@@ -90,7 +85,7 @@ let cancelArmed = false;
 let view = "bookings";
 let openEmail = null;
 let compArmed = null; // creditType awaiting confirmation
-let statScope = null; // which headline number the table is scoped to
+let openStat = null; // which headline number's detail panel is open
 
 const STATUS_LABELS = { pending: "Pending", confirmed: "Confirmed", cancelled: "Cancelled" };
 
@@ -126,23 +121,16 @@ for (const loc of LOCATIONS) {
 
 function filtersActive() {
   return Boolean(
-    els.filterService.value ||
-      els.filterLocation.value ||
-      els.filterStatus.value ||
-      els.search.value.trim() ||
-      statScope
+    els.filterService.value || els.filterLocation.value || els.filterStatus.value || els.search.value.trim()
   );
 }
 
-/* A stat scope narrows the population first; the dropdowns and search then
-   filter within it, so the two combine rather than override each other. */
 function filteredBookings() {
   const service = els.filterService.value;
   const location = els.filterLocation.value;
   const status = els.filterStatus.value;
   const query = els.search.value.trim().toLowerCase();
-  const base = statScope ? scopeRows(statScope, getBookings()) : getBookings();
-  return base.filter((b) => {
+  return getBookings().filter((b) => {
     if (service && b.serviceId !== service) return false;
     if (location && b.locationId !== location) return false;
     if (status && b.status !== status) return false;
@@ -181,10 +169,9 @@ function currentRows() {
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /*
- * Each headline number is a control: clicking it scopes the table to exactly
- * the bookings it counts, and the strip beneath explains how the figure is
- * composed. `basis` states the rule in words, so a manager reading a number
- * off the dashboard never has to guess what it includes.
+ * Each headline number opens the slide-over detail panel: what the figure
+ * means (`basis`, the rule in words), a per-stat breakdown, and the actual
+ * bookings behind it — each one clickable through to its own detail panel.
  *
  * "Deposits collected" and "Active bookings" cover the same rows — every
  * non-cancelled booking — because those are the same population counted two
@@ -305,39 +292,6 @@ function renderStats() {
   );
   els.statPending.textContent = String(scopeRows("pending", bookings, now).length);
   els.statActive.textContent = String(scopeRows("active", bookings, now).length);
-
-  els.stats.forEach((btn) => {
-    const active = btn.dataset.stat === statScope;
-    btn.classList.toggle("is-active", active);
-    btn.setAttribute("aria-pressed", active ? "true" : "false");
-  });
-}
-
-function renderScopeStrip() {
-  if (!statScope || view !== "bookings") {
-    els.scopeStrip.hidden = true;
-    return;
-  }
-  const def = STAT_SCOPES[statScope];
-  const rows = scopeRows(statScope, getBookings());
-  els.scopeStrip.hidden = false;
-  els.scopeTitle.textContent = def.title;
-  els.scopeBasis.textContent = def.basis;
-  els.scopeFacts.innerHTML = scopeFacts(statScope, rows)
-    .map(
-      ([label, value]) =>
-        '<div class="scope__fact"><dt>' + esc(label) + "</dt><dd>" + esc(value) + "</dd></div>"
-    )
-    .join("");
-}
-
-function setStatScope(next) {
-  statScope = statScope === next ? null : next; // clicking the active tile clears it
-  if (statScope && view !== "bookings") {
-    setView("bookings"); // setView refreshes for us
-    return;
-  }
-  refresh();
 }
 
 /* ---- Table ---- */
@@ -346,9 +300,7 @@ function renderTable() {
   const all = getBookings();
   const rows = currentRows();
 
-  els.count.textContent =
-    "Showing " + rows.length + " of " + all.length + " bookings" +
-    (statScope ? " · " + STAT_SCOPES[statScope].title.toLowerCase() : "");
+  els.count.textContent = "Showing " + rows.length + " of " + all.length + " bookings";
   els.clearFilters.hidden = !filtersActive();
 
   if (all.length === 0) {
@@ -786,6 +738,7 @@ function renderAccountActions(account) {
 function openAccountPanel(email) {
   openRef = null;
   openEmail = email;
+  openStat = null;
   cancelArmed = false;
   compArmed = null;
   renderAccountPanel();
@@ -795,9 +748,72 @@ function openAccountPanel(email) {
   renderCurrentTable();
 }
 
+/* ---- Stat detail panel ---- */
+
+/*
+ * The detail behind a headline number, in the same slide-over managers
+ * already use: what the figure means, its breakdown, and every booking it
+ * counts — each clickable through to that booking's own panel.
+ */
+function renderStatPanel() {
+  const def = STAT_SCOPES[openStat];
+  const rows = scopeRows(openStat, getBookings());
+
+  els.panelRef.textContent = def.title;
+  els.panelBadge.className = "badge badge--confirmed";
+  els.panelBadge.textContent =
+    openStat === "deposits"
+      ? formatMoneyCAD(rows.reduce((sum, b) => sum + bookingAmount(b), 0))
+      : rows.length + (rows.length === 1 ? " booking" : " bookings");
+
+  let html =
+    '<div class="panel__section"><h3>What this counts</h3>' +
+    '<p class="panel__text">' + esc(def.basis) + "</p></div>";
+
+  let factRows = "";
+  for (const [label, value] of scopeFacts(openStat, rows)) {
+    factRows += panelRow(label, esc(value));
+  }
+  html += panelSection("Breakdown", factRows);
+
+  let bookingRows = "";
+  for (const b of sortedBookings(rows)) {
+    bookingRows += panelRow(
+      formatScheduleLine(b) || b.serviceName,
+      '<button type="button" class="text-link" data-open-booking="' + esc(b.ref) + '">' +
+        esc(b.ref) + "</button> · " + esc(STATUS_LABELS[b.status])
+    );
+  }
+  html += panelSection(
+    "The bookings behind it",
+    bookingRows || panelRow("Bookings", "None right now")
+  );
+
+  els.panelBody.innerHTML = html;
+  els.panelBody.querySelectorAll("[data-open-booking]").forEach((btn) => {
+    btn.addEventListener("click", () => openPanel(btn.dataset.openBooking));
+  });
+
+  els.panelActions.classList.remove("panel__actions--confirm");
+  els.panelActions.innerHTML = "";
+}
+
+function openStatPanel(key) {
+  openRef = null;
+  openEmail = null;
+  openStat = key;
+  cancelArmed = false;
+  compArmed = null;
+  renderStatPanel();
+  els.scrim.hidden = false;
+  els.panel.hidden = false;
+  els.panelClose.focus();
+}
+
 function openPanel(ref) {
   openRef = ref;
   openEmail = null;
+  openStat = null;
   cancelArmed = false;
   compArmed = null;
   renderPanel();
@@ -810,13 +826,23 @@ function openPanel(ref) {
 function closePanel() {
   const refToFocus = openRef;
   const emailToFocus = openEmail;
+  const statToFocus = openStat;
   openRef = null;
   openEmail = null;
+  openStat = null;
   cancelArmed = false;
   compArmed = null;
   els.scrim.hidden = true;
   els.panel.hidden = true;
   renderCurrentTable();
+  /* A stat panel came from a tile, so focus returns there. */
+  if (statToFocus) {
+    const tile = document.querySelector('.stat[data-stat="' + CSS.escape(statToFocus) + '"]');
+    if (tile) {
+      tile.focus();
+      return;
+    }
+  }
   /* Rows are rebuilt on every render, so re-resolve the row by key rather
      than holding a detached element; fall back to the table itself. */
   let row = null;
@@ -842,24 +868,19 @@ function clearAllFilters() {
   els.filterLocation.value = "";
   els.filterStatus.value = "";
   els.search.value = "";
-  statScope = null;
-  refresh(); // stats and the scope strip both reflect the cleared scope
+  renderCurrentTable();
 }
 
 /* Tiles are divs with role="button" (to keep the original <p> markup), so
    Enter/Space activation is wired by hand. */
 els.stats.forEach((btn) => {
-  btn.addEventListener("click", () => setStatScope(btn.dataset.stat));
+  btn.addEventListener("click", () => openStatPanel(btn.dataset.stat));
   btn.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      setStatScope(btn.dataset.stat);
+      openStatPanel(btn.dataset.stat);
     }
   });
-});
-els.scopeClear.addEventListener("click", () => {
-  statScope = null;
-  refresh();
 });
 
 [els.filterService, els.filterLocation, els.filterStatus].forEach((sel) =>
@@ -898,7 +919,7 @@ els.resetCancel.addEventListener("click", () => {
 els.resetConfirm.addEventListener("click", () => {
   resetDemoData();
   els.resetStrip.hidden = true;
-  if (openRef || openEmail) closePanel();
+  if (openRef || openEmail || openStat) closePanel();
   clearAllFilters(); // refreshes stats, scope strip and table
   els.resetBtn.focus();
 });
@@ -912,10 +933,10 @@ function renderCurrentTable() {
 
 function refresh() {
   renderStats();
-  renderScopeStrip();
   renderCurrentTable();
   if (openRef) renderPanel();
   else if (openEmail) renderAccountPanel();
+  else if (openStat) renderStatPanel();
 }
 
 refresh();

@@ -80,36 +80,6 @@ body.dash { background: var(--gray); }
 }
 .stat[data-stat]:hover { background: var(--hover-tint); border-color: var(--black); }
 .stat[data-stat]:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
-.stat.is-active { border-color: var(--black); background: var(--red-tint); }
-.stat.is-active .stat__label { color: var(--red); }
-
-/* ---- 5.16a Stat breakdown strip ---- */
-
-.scope {
-  background: var(--white); border: var(--border);
-  border-left: var(--edge) solid var(--red);
-  padding: var(--sp-4) var(--sp-5);
-  margin-bottom: var(--sp-6);
-}
-.scope__head {
-  display: flex; justify-content: space-between; align-items: baseline;
-  gap: var(--sp-4); flex-wrap: wrap;
-}
-.scope__title { font-size: var(--fs-h3); margin: 0; }
-.scope__basis { font-size: var(--fs-xs); color: var(--ink-70); margin: var(--sp-2) 0 var(--sp-4); max-width: 68ch; }
-.scope__facts {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-3) var(--sp-5); margin: 0;
-  border-top: 1px solid var(--line-soft); padding-top: var(--sp-4);
-}
-.scope__fact dt {
-  font-size: var(--fs-tag); font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--ink-70);
-}
-.scope__fact dd {
-  margin: 2px 0 0; font-size: var(--fs-sm); font-weight: 600; color: var(--black);
-  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
-}
 
 /* ---- 5.16b View tabs (Bookings / Accounts) ---- */
 
@@ -221,6 +191,7 @@ body.dash { background: var(--gray); }
 .panel__section + .panel__section { border-top: 1px solid var(--line-soft); margin-top: var(--sp-4); padding-top: var(--sp-4); }
 .panel__section h3 { font-size: var(--fs-cap); letter-spacing: var(--ls-btn); color: var(--ink-70); margin-bottom: var(--sp-3); }
 .panel__section dl { margin: 0; }
+.panel__text { margin: 0; font-size: var(--fs-xs); color: var(--ink-70); }
 .panel__row { display: flex; justify-content: space-between; gap: var(--sp-4); padding: 3px 0; font-size: var(--fs-xs); }
 .panel__row dt { color: var(--ink-70); }
 .panel__row dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
@@ -268,5 +239,4 @@ body.dash { background: var(--gray); }
 
 @media (min-width: 1024px) {
   .stats { grid-template-columns: repeat(4, 1fr); }
-  .scope__facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

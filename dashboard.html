@@ -37,35 +37,26 @@
   <main class="dash-main">
 
     <section class="stats" aria-label="Summary statistics">
-      <div class="stat" data-stat="week" role="button" tabindex="0" aria-pressed="false">
+      <div class="stat" data-stat="week" role="button" tabindex="0">
         <p class="stat__value" id="statWeek">0</p>
         <p class="stat__label">Bookings this week</p>
         <p class="stat__sublabel">Last 7 days, excluding cancelled</p>
       </div>
-      <div class="stat" data-stat="deposits" role="button" tabindex="0" aria-pressed="false">
+      <div class="stat" data-stat="deposits" role="button" tabindex="0">
         <p class="stat__value" id="statDeposits">$0 CAD</p>
         <p class="stat__label">Deposits collected</p>
         <p class="stat__sublabel">Pending and confirmed</p>
       </div>
-      <div class="stat stat--attention" data-stat="pending" role="button" tabindex="0" aria-pressed="false">
+      <div class="stat stat--attention" data-stat="pending" role="button" tabindex="0">
         <p class="stat__value" id="statPending">0</p>
         <p class="stat__label">Pending</p>
         <p class="stat__sublabel">Waiting on confirmation</p>
       </div>
-      <div class="stat" data-stat="active" role="button" tabindex="0" aria-pressed="false">
+      <div class="stat" data-stat="active" role="button" tabindex="0">
         <p class="stat__value" id="statActive">0</p>
         <p class="stat__label">Active bookings</p>
         <p class="stat__sublabel">All non-cancelled</p>
       </div>
-    </section>
-
-    <section class="scope" id="scopeStrip" role="region" aria-label="Selected statistic" hidden>
-      <div class="scope__head">
-        <h2 class="scope__title" id="scopeTitle"></h2>
-        <button type="button" class="text-link" id="scopeClearBtn">Show all bookings</button>
-      </div>
-      <p class="scope__basis" id="scopeBasis"></p>
-      <dl class="scope__facts" id="scopeFacts"></dl>
     </section>
 
     <div class="dash-tabs" role="tablist" aria-label="Dashboard views">
