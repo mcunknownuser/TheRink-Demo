@@ -38,6 +38,12 @@ ensureSeed();
 /* ---- Elements ---- */
 
 const els = {
+  stats: document.querySelectorAll(".stat[data-stat]"),
+  scopeStrip: document.getElementById("scopeStrip"),
+  scopeTitle: document.getElementById("scopeTitle"),
+  scopeBasis: document.getElementById("scopeBasis"),
+  scopeFacts: document.getElementById("scopeFacts"),
+  scopeClear: document.getElementById("scopeClearBtn"),
   statWeek: document.getElementById("statWeek"),
   statDeposits: document.getElementById("statDeposits"),
   statPending: document.getElementById("statPending"),
@@ -84,6 +90,7 @@ let cancelArmed = false;
 let view = "bookings";
 let openEmail = null;
 let compArmed = null; // creditType awaiting confirmation
+let statScope = null; // which headline number the table is scoped to
 
 const STATUS_LABELS = { pending: "Pending", confirmed: "Confirmed", cancelled: "Cancelled" };
 
@@ -119,16 +126,23 @@ for (const loc of LOCATIONS) {
 
 function filtersActive() {
   return Boolean(
-    els.filterService.value || els.filterLocation.value || els.filterStatus.value || els.search.value.trim()
+    els.filterService.value ||
+      els.filterLocation.value ||
+      els.filterStatus.value ||
+      els.search.value.trim() ||
+      statScope
   );
 }
 
+/* A stat scope narrows the population first; the dropdowns and search then
+   filter within it, so the two combine rather than override each other. */
 function filteredBookings() {
   const service = els.filterService.value;
   const location = els.filterLocation.value;
   const status = els.filterStatus.value;
   const query = els.search.value.trim().toLowerCase();
-  return getBookings().filter((b) => {
+  const base = statScope ? scopeRows(statScope, getBookings()) : getBookings();
+  return base.filter((b) => {
     if (service && b.serviceId !== service) return false;
     if (location && b.locationId !== location) return false;
     if (status && b.status !== status) return false;
@@ -164,18 +178,166 @@ function currentRows() {
 
 /* ---- Stats ---- */
 
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/*
+ * Each headline number is a control: clicking it scopes the table to exactly
+ * the bookings it counts, and the strip beneath explains how the figure is
+ * composed. `basis` states the rule in words, so a manager reading a number
+ * off the dashboard never has to guess what it includes.
+ *
+ * "Deposits collected" and "Active bookings" cover the same rows — every
+ * non-cancelled booking — because those are the same population counted two
+ * ways, in money and in volume. Their breakdowns differ accordingly.
+ */
+const STAT_SCOPES = {
+  week: {
+    title: "Bookings this week",
+    basis: "Booked in the last 7 days. Cancelled bookings are excluded.",
+    match: (b, now) => b.status !== "cancelled" && new Date(b.createdAt).getTime() >= now - WEEK_MS
+  },
+  deposits: {
+    title: "Deposits collected",
+    basis: "Every pending and confirmed booking. Credit-paid sessions were paid for when the package was bought, so they add nothing here.",
+    match: (b) => b.status === "pending" || b.status === "confirmed"
+  },
+  pending: {
+    title: "Pending bookings",
+    basis: "Booked and paid for, waiting on the front desk to confirm.",
+    match: (b) => b.status === "pending"
+  },
+  active: {
+    title: "Active bookings",
+    basis: "Everything not cancelled, whatever its status or date.",
+    match: (b) => b.status !== "cancelled"
+  }
+};
+
+function scopeRows(scope, bookings, now = Date.now()) {
+  return bookings.filter((b) => STAT_SCOPES[scope].match(b, now));
+}
+
+/* label/value pairs shown in the strip — the "why is it this number" detail. */
+function scopeFacts(scope, rows) {
+  const money = rows.reduce((sum, b) => sum + bookingAmount(b), 0);
+  const byStatus = (s) => rows.filter((b) => b.status === s).length;
+  const paidByCard = rows.filter((b) => !isCreditPaid(b) && bookingAmount(b) > 0);
+  const paidByCredit = rows.filter(isCreditPaid);
+
+  const busiest = () => {
+    const counts = new Map();
+    for (const b of rows) counts.set(b.serviceName, (counts.get(b.serviceName) || 0) + 1);
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    return top ? top[0] + " (" + top[1] + ")" : "—";
+  };
+
+  const byLocation = () =>
+    LOCATIONS.map((l) => {
+      const n = rows.filter((b) => b.locationId === l.id).length;
+      return n ? l.short + " " + n : null;
+    })
+      .filter(Boolean)
+      .join(" · ") || "—";
+
+  const nextSession = () => {
+    const upcoming = rows
+      .map(bookingStart)
+      .filter((d) => d && d.getTime() >= Date.now())
+      .sort((a, b) => a - b)[0];
+    return upcoming ? formatDateTime(upcoming.toISOString()) : "None scheduled";
+  };
+
+  if (scope === "week") {
+    return [
+      ["Bookings", String(rows.length)],
+      ["Confirmed", String(byStatus("confirmed"))],
+      ["Awaiting confirmation", String(byStatus("pending"))],
+      ["Deposits taken", formatMoneyCAD(money)],
+      ["Most booked", busiest()],
+      ["By location", byLocation()]
+    ];
+  }
+  if (scope === "deposits") {
+    const avg = paidByCard.length ? Math.round(money / paidByCard.length) : 0;
+    return [
+      ["Total collected", formatMoneyCAD(money)],
+      ["From card deposits", paidByCard.length + (paidByCard.length === 1 ? " booking" : " bookings")],
+      ["Average deposit", paidByCard.length ? formatMoneyCAD(avg) : "—"],
+      ["Credit-paid (adds $0)", String(paidByCredit.length)],
+      ["Held against pending", formatMoneyCAD(rows.filter((b) => b.status === "pending").reduce((s, b) => s + bookingAmount(b), 0))],
+      ["By location", byLocation()]
+    ];
+  }
+  if (scope === "pending") {
+    const oldest = rows
+      .map((b) => new Date(b.createdAt).getTime())
+      .sort((a, b) => a - b)[0];
+    const days = oldest ? Math.floor((Date.now() - oldest) / (24 * 60 * 60 * 1000)) : 0;
+    return [
+      ["Waiting", String(rows.length)],
+      ["Longest wait", rows.length ? (days === 0 ? "Under a day" : days + (days === 1 ? " day" : " days")) : "—"],
+      ["Deposits held", formatMoneyCAD(money)],
+      ["Next session", nextSession()],
+      ["Most booked", busiest()],
+      ["By location", byLocation()]
+    ];
+  }
+  const dated = rows.filter((b) => bookingStart(b));
+  const upcoming = dated.filter((b) => bookingStart(b).getTime() >= Date.now()).length;
+  return [
+    ["Active bookings", String(rows.length)],
+    ["Confirmed", String(byStatus("confirmed"))],
+    ["Awaiting confirmation", String(byStatus("pending"))],
+    ["Upcoming sessions", String(upcoming)],
+    ["Seasonal or camp", String(rows.length - dated.length)],
+    ["By location", byLocation()]
+  ];
+}
+
 function renderStats() {
   const bookings = getBookings();
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const week = bookings.filter((b) => b.status !== "cancelled" && new Date(b.createdAt).getTime() >= weekAgo);
-  const live = bookings.filter((b) => b.status === "pending" || b.status === "confirmed");
+  const now = Date.now();
+  els.statWeek.textContent = String(scopeRows("week", bookings, now).length);
   /* Credit-paid bookings contribute nothing: that money was banked when the
      package was bought, so counting it again would double the total. */
-  const deposits = live.reduce((sum, b) => sum + bookingAmount(b), 0);
-  els.statWeek.textContent = String(week.length);
-  els.statDeposits.textContent = formatMoneyCAD(deposits);
-  els.statPending.textContent = String(bookings.filter((b) => b.status === "pending").length);
-  els.statActive.textContent = String(bookings.filter((b) => b.status !== "cancelled").length);
+  els.statDeposits.textContent = formatMoneyCAD(
+    scopeRows("deposits", bookings, now).reduce((sum, b) => sum + bookingAmount(b), 0)
+  );
+  els.statPending.textContent = String(scopeRows("pending", bookings, now).length);
+  els.statActive.textContent = String(scopeRows("active", bookings, now).length);
+
+  els.stats.forEach((btn) => {
+    const active = btn.dataset.stat === statScope;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function renderScopeStrip() {
+  if (!statScope || view !== "bookings") {
+    els.scopeStrip.hidden = true;
+    return;
+  }
+  const def = STAT_SCOPES[statScope];
+  const rows = scopeRows(statScope, getBookings());
+  els.scopeStrip.hidden = false;
+  els.scopeTitle.textContent = def.title;
+  els.scopeBasis.textContent = def.basis;
+  els.scopeFacts.innerHTML = scopeFacts(statScope, rows)
+    .map(
+      ([label, value]) =>
+        '<div class="scope__fact"><dt>' + esc(label) + "</dt><dd>" + esc(value) + "</dd></div>"
+    )
+    .join("");
+}
+
+function setStatScope(next) {
+  statScope = statScope === next ? null : next; // clicking the active tile clears it
+  if (statScope && view !== "bookings") {
+    setView("bookings"); // setView refreshes for us
+    return;
+  }
+  refresh();
 }
 
 /* ---- Table ---- */
@@ -184,7 +346,9 @@ function renderTable() {
   const all = getBookings();
   const rows = currentRows();
 
-  els.count.textContent = "Showing " + rows.length + " of " + all.length + " bookings";
+  els.count.textContent =
+    "Showing " + rows.length + " of " + all.length + " bookings" +
+    (statScope ? " · " + STAT_SCOPES[statScope].title.toLowerCase() : "");
   els.clearFilters.hidden = !filtersActive();
 
   if (all.length === 0) {
@@ -678,8 +842,15 @@ function clearAllFilters() {
   els.filterLocation.value = "";
   els.filterStatus.value = "";
   els.search.value = "";
-  renderCurrentTable();
+  statScope = null;
+  refresh(); // stats and the scope strip both reflect the cleared scope
 }
+
+els.stats.forEach((btn) => btn.addEventListener("click", () => setStatScope(btn.dataset.stat)));
+els.scopeClear.addEventListener("click", () => {
+  statScope = null;
+  refresh();
+});
 
 [els.filterService, els.filterLocation, els.filterStatus].forEach((sel) =>
   sel.addEventListener("change", renderCurrentTable)
@@ -718,8 +889,7 @@ els.resetConfirm.addEventListener("click", () => {
   resetDemoData();
   els.resetStrip.hidden = true;
   if (openRef || openEmail) closePanel();
-  clearAllFilters();
-  refresh();
+  clearAllFilters(); // refreshes stats, scope strip and table
   els.resetBtn.focus();
 });
 
@@ -732,6 +902,7 @@ function renderCurrentTable() {
 
 function refresh() {
   renderStats();
+  renderScopeStrip();
   renderCurrentTable();
   if (openRef) renderPanel();
   else if (openEmail) renderAccountPanel();

@@ -53,22 +53,71 @@ body.dash { background: var(--gray); }
 /* ---- 5.16 Stat tiles ---- */
 
 .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-4); margin: var(--sp-6) 0; }
+/* Each tile is a button: it scopes the table to the rows it counts. */
 .stat {
+  display: block; width: 100%; text-align: left; font: inherit;
   background: var(--white); border: var(--border);
   border-top: var(--edge) solid var(--black);
   padding: var(--sp-4) var(--sp-5);
+  cursor: pointer;
+  transition: background-color var(--speed) ease, border-color var(--speed) ease;
 }
+.stat:hover { background: var(--hover-tint); border-color: var(--black); }
+.stat:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
 .stat--attention { border-top-color: var(--red); }   /* Pending tile only */
 .stat__value {
+  display: block;
   font-family: var(--font-head); font-weight: 600; font-size: var(--fs-stat);
   line-height: 1; color: var(--black); font-variant-numeric: tabular-nums;
 }
 .stat--attention .stat__value { color: var(--red); }
 .stat__label {
+  display: block;
   font-size: var(--fs-tag); font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--ink-70); margin-top: var(--sp-2);
 }
-.stat__sublabel { font-size: var(--fs-tag); color: var(--ink-45); margin-top: var(--sp-1); }
+.stat__sublabel { display: block; font-size: var(--fs-tag); color: var(--ink-45); margin-top: var(--sp-1); }
+
+/* Affordance held back until hover/focus so four tiles don't shout at once. */
+.stat__cue {
+  display: block; margin-top: var(--sp-3);
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-tag);
+  text-transform: uppercase; letter-spacing: var(--ls-btn);
+  color: var(--ink-45);
+  transition: color var(--speed) ease;
+}
+.stat:hover .stat__cue, .stat:focus-visible .stat__cue { color: var(--red); }
+.stat.is-active { border-color: var(--black); background: var(--red-tint); }
+.stat.is-active .stat__cue { color: var(--red); }
+.stat.is-active .stat__cue::after { content: " — showing"; }
+
+/* ---- 5.16a Stat breakdown strip ---- */
+
+.scope {
+  background: var(--white); border: var(--border);
+  border-left: var(--edge) solid var(--red);
+  padding: var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-6);
+}
+.scope__head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--sp-4); flex-wrap: wrap;
+}
+.scope__title { font-size: var(--fs-h3); margin: 0; }
+.scope__basis { font-size: var(--fs-xs); color: var(--ink-70); margin: var(--sp-2) 0 var(--sp-4); max-width: 68ch; }
+.scope__facts {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3) var(--sp-5); margin: 0;
+  border-top: 1px solid var(--line-soft); padding-top: var(--sp-4);
+}
+.scope__fact dt {
+  font-size: var(--fs-tag); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--ink-70);
+}
+.scope__fact dd {
+  margin: 2px 0 0; font-size: var(--fs-sm); font-weight: 600; color: var(--black);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
 
 /* ---- 5.16b View tabs (Bookings / Accounts) ---- */
 
@@ -227,4 +276,5 @@ body.dash { background: var(--gray); }
 
 @media (min-width: 1024px) {
   .stats { grid-template-columns: repeat(4, 1fr); }
+  .scope__facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
