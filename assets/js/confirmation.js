@@ -6,7 +6,7 @@
 
 import { ensureSeed, findBooking, formatDate, formatMoneyCAD, isCreditPaid } from "./store.js";
 import { balanceOf } from "./accounts.js";
-import { CREDIT_TYPES } from "./catalog.js";
+import { CREDIT_TYPES, getLocation } from "./catalog.js";
 
 ensureSeed();
 
@@ -97,7 +97,16 @@ function renderBooking(b) {
   html += '<section class="confirm-summary">';
   html += "<h2>Booking summary</h2>";
   html += '<div class="recap">';
-  html += group("Service", row("Service", b.serviceName) + row("Location", b.locationName));
+  /* Address comes from the catalog, not the record: this is the page the
+     customer comes back to for directions, and a stored name alone can't
+     tell them where to drive. Guarded in case a booking outlives a facility. */
+  const loc = getLocation(b.locationId);
+  html += group(
+    "Service",
+    row("Service", b.serviceName) +
+      row("Location", b.locationName) +
+      (loc ? row("Address", loc.address) + row("Front desk", loc.phone) : "")
+  );
   html += group("Schedule", schedRows);
   html += group("Participant", partRows);
   html += group(

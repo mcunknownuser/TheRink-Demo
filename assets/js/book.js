@@ -12,6 +12,7 @@ import {
   depositFor,
   ageGroupFromProgram,
   campWeeksAt,
+  locationLine,
   isSlotHeld,
   slotEndTime,
   SLOT_TIMES,
@@ -321,7 +322,7 @@ function renderStep2() {
       "<li>" +
       optionRow(loc.name, loc.id, draft.locationId === loc.id, {
         group: "location",
-        sub: loc.city,
+        sub: locationLine(loc), // street + town, so the choice is concrete
         fixed: single
       }) +
       "</li>";
@@ -782,7 +783,13 @@ function renderStep5() {
   html += '<form id="payForm" autocomplete="off" novalidate>';
   html += '<div class="recap">';
   html += recapGroup("Service", 1, recapRow("Service", svc.name));
-  html += recapGroup("Location", 2, recapRow("Location", loc.full));
+  /* The address is the last chance to catch a wrong-facility booking, and the
+     only place the customer learns where to actually drive. */
+  html += recapGroup(
+    "Location",
+    2,
+    recapRow("Location", loc.name) + recapRow("Address", loc.address)
+  );
 
   let schedRows = "";
   if (svc.type === "hourly") {

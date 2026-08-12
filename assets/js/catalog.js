@@ -16,6 +16,11 @@ export const LOCATIONS = [
     city: "Oak Bluff, MB",
     full: "RINK Training Centre — Oak Bluff, MB",
     short: "Training Centre",
+    street: "57 South Landing Drive",
+    /* Oak Bluff is a village outside the city, so a Winnipeg customer may not
+       recognise it. therink.ca titles this facility "Winnipeg South"; carrying
+       that through keeps the address accurate and the place recognisable. */
+    area: "Winnipeg South",
     address: "57 South Landing Drive, Oak Bluff, MB R4G 0C4",
     phone: "(204) 489-7465",
     tel: "+12044897465"
@@ -26,6 +31,8 @@ export const LOCATIONS = [
     city: "Kelowna, BC",
     full: "RINK Kelowna — Kelowna, BC",
     short: "Kelowna",
+    street: "103-716 Adams Ct",
+    area: null,
     address: "103-716 Adams Ct, Kelowna, BC V1X 7S2",
     phone: "(250) 491-4160",
     tel: "+12504914160"
@@ -271,6 +278,15 @@ export function getService(id) {
 
 export function getLocation(id) {
   return LOCATIONS.find((l) => l.id === id) || null;
+}
+
+/* One line placing a facility concretely, for the point where the customer
+   picks it: street, town, and the wider area when the town alone isn't
+   recognisable. */
+export function locationLine(location) {
+  if (!location) return "";
+  const base = location.street + ", " + location.city;
+  return location.area ? base + " · " + location.area : base;
 }
 
 export function bookableServices() {
