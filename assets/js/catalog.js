@@ -64,6 +64,50 @@ export const CAMP_WEEKS = [
   { label: "March Break — Mar 29 – Apr 2, 2027", monday: "2027-03-29", locations: ["trc", "kelowna"] }
 ];
 
+/* ---- Ice sheets (therink.ca/ice-rentals) ----
+ *
+ * RINK rents three distinct surfaces, not "full or half ice". Naming them is
+ * the point: a general-purpose marketplace can only sell a slab of ice by the
+ * hour, whereas the goalie sheet is a specific room for a specific job.
+ *
+ * Dimensions are theirs. The deposit figures are NOT published anywhere and
+ * are demo placeholders — confirm before showing them as real pricing.
+ */
+export const ICE_SHEETS = [
+  {
+    id: "standard",
+    label: "Standard Sheet",
+    dims: "200 × 85 ft",
+    desc: "NHL regulation. Games, tournaments and full-team practice.",
+    deposit: 150
+  },
+  {
+    id: "training",
+    label: "Training Sheet",
+    dims: "120 × 60 ft",
+    desc: "Two-thirds size. Skill development and small groups.",
+    deposit: 100
+  },
+  {
+    id: "goalie",
+    label: "Goalie Sheet",
+    dims: "60 × 35 ft",
+    desc: "Crease-sized. Goaltending work and one-on-one skills.",
+    deposit: 75
+  }
+];
+
+export function getSheet(id) {
+  return ICE_SHEETS.find((x) => x.id === id) || null;
+}
+
+/* Label for a stored sheet id. Falls back to the raw value so a record written
+   before the sheets existed still renders something truthful. */
+export function sheetLabel(id) {
+  const sheet = getSheet(id);
+  return sheet ? sheet.label : id || "";
+}
+
 /* ---- Brands (STRATEGY 3.7) ----
  *
  * RINK and Testify Performance are partners operating out of the same two
@@ -207,12 +251,12 @@ export const SERVICES = [
     brand: "rink",
     type: "hourly",
     group: "sessions",
-    deposit: { full: 150, half: 75 },
+    deposit: { standard: 150, training: 100, goalie: 75 },
     pricing: { model: "deposit" },
     locations: ["trc", "kelowna"],
-    desc: "Full or half ice by the hour for teams and groups. Run your own practice, skate, or scrimmage.",
+    desc: "Three surfaces by the hour: NHL-regulation, two-thirds training, and a crease-sized goalie sheet. Book the one that fits the session.",
     locationsLine: "Training Centre · Kelowna",
-    depositLine: "$150 deposit full ice · $75 half ice"
+    depositLine: "From $75 · three sheets"
   },
   {
     id: "dev-program",

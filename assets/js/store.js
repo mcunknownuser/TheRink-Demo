@@ -5,6 +5,7 @@
  */
 
 import { materializeSeed, materializeCreditSeed } from "./seed.js";
+import { sheetLabel, getBrand } from "./catalog.js";
 
 export const BOOKINGS_KEY = "rink.bookings";
 export const SEED_KEY = "rink.seedVersion";
@@ -15,8 +16,9 @@ export const CREDITS_KEY = "rink.credits";
 export const ACCOUNTS_KEY = "rink.accounts";
 
 /* Bumped when the stored shape changes and old data would render incoherently:
-   2 added the credit ledger, 3 added brands and Testify memberships. */
-export const SEED_VERSION = "3";
+   2 added the credit ledger, 3 added brands and Testify memberships, 4 split
+   ice rental into three named sheets. */
+export const SEED_VERSION = "4";
 
 function storage() {
   return globalThis.localStorage;
@@ -196,6 +198,22 @@ export function isSlotBooked(serviceId, locationId, date, startTime) {
   );
 }
 
+/* ---- Cross-tab sync ----
+ *
+ * The `storage` event fires in *other* tabs of the same origin, never the one
+ * that wrote. So a manager confirming a booking on the dashboard reaches a
+ * customer's open account tab without either page polling. Same-tab updates
+ * still go through the normal render path.
+ */
+export function onStoreChange(handler) {
+  const watched = [BOOKINGS_KEY, CREDITS_KEY, ACCOUNTS_KEY, SEED_KEY];
+  if (typeof globalThis.addEventListener !== "function") return; // Node tests
+  globalThis.addEventListener("storage", (e) => {
+    /* e.key is null when storage is cleared wholesale. */
+    if (e.key === null || watched.includes(e.key)) handler(e);
+  });
+}
+
 /* ---- Formatters (shared by wizard, confirmation, dashboard, CSV) ---- */
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -287,7 +305,7 @@ export function formatScheduleLine(booking) {
   const s = booking.schedule || {};
   if (s.date) {
     let line = formatDate(s.date) + " · " + s.startTime + "–" + s.endTime;
-    if (s.iceOption) line += s.iceOption === "full" ? " · Full ice" : " · Half ice";
+    if (s.iceOption) line += " · " + sheetLabel(s.iceOption);
     return line;
   }
   if (s.tier) {
@@ -309,6 +327,7 @@ export function participantLabel(booking) {
 export const CSV_COLUMNS = [
   "Ref",
   "Created",
+  "Brand",
   "Service",
   "Location",
   "Schedule",
@@ -335,6 +354,7 @@ export function bookingsToCsv(bookings) {
       [
         b.ref,
         formatDateTime(b.createdAt),
+        getBrand(brandOfBooking(b)).name,
         b.serviceName,
         b.locationName,
         formatScheduleLine(b),

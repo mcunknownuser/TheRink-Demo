@@ -25,6 +25,8 @@ import {
   packageSavings,
   ageGroupsFor,
   CREDIT_TYPES,
+  ICE_SHEETS,
+  sheetLabel,
   brandOf,
   getBrand,
   isMembershipService,
@@ -386,11 +388,21 @@ function renderStep3Hourly(svc) {
   );
 
   if (isRental) {
-    html += '<fieldset class="option-set"><legend>Ice option</legend>';
+    /* Three named surfaces, not "full or half" — the sheet is the product. */
+    html += '<fieldset class="option-set"><legend>Ice sheet</legend>';
     html += groupError("iceOption");
     html += '<ul class="option-list">';
-    html += "<li>" + optionRow("Full ice — $150 deposit", "full", s.iceOption === "full", { group: "iceOption" }) + "</li>";
-    html += "<li>" + optionRow("Half ice — $75 deposit", "half", s.iceOption === "half", { group: "iceOption" }) + "</li>";
+    for (const sheet of ICE_SHEETS) {
+      html +=
+        "<li>" +
+        optionRow(sheet.label, sheet.id, s.iceOption === sheet.id, {
+          group: "iceOption",
+          sub: sheet.dims + " · " + sheet.desc,
+          price: formatMoney(sheet.deposit) + " deposit",
+          wrapPrice: true
+        }) +
+        "</li>";
+    }
     html += "</ul></fieldset>";
   }
 
@@ -920,7 +932,7 @@ function renderStep5() {
   if (svc.type === "hourly") {
     schedRows += recapRow("Date", formatDate(s.date));
     schedRows += recapRow("Time", s.startTime + "–" + slotEndTime(s.startTime));
-    if (isRental) schedRows += recapRow("Ice option", s.iceOption === "full" ? "Full ice" : "Half ice");
+    if (isRental) schedRows += recapRow("Ice sheet", sheetLabel(s.iceOption));
   } else if (svc.type === "seasonal") {
     schedRows += recapRow("Program", s.program);
     schedRows += recapRow("Season", s.season);
@@ -1052,7 +1064,7 @@ function validateStep() {
 function validateSchedule(svc) {
   const s = draft.schedule;
   if (svc.type === "hourly") {
-    if (svc.id === "ice-rental" && !s.iceOption) pendingErrors.iceOption = "Choose full or half ice.";
+    if (svc.id === "ice-rental" && !s.iceOption) pendingErrors.iceOption = "Choose an ice sheet.";
     if (!s.date) {
       pendingErrors.date = "Pick a date within the next 45 days.";
     } else if (s.date < todayISO() || s.date > maxDateISO()) {

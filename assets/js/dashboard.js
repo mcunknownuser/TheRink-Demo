@@ -15,6 +15,7 @@ import {
   getBrand,
   getTier,
   streamLabel,
+  sheetLabel,
   MEMBERSHIP_MIN_TERM_MONTHS
 } from "./catalog.js";
 import {
@@ -30,6 +31,7 @@ import {
   formatScheduleLine,
   participantLabel,
   paymentLine,
+  onStoreChange,
   isCreditPaid,
   bookingAmount,
   isMembership,
@@ -622,7 +624,7 @@ function renderPanel() {
   } else if (b.serviceType === "hourly") {
     schedRows += panelRow("Date", esc(formatDate(s.date)));
     schedRows += panelRow("Time", esc(s.startTime + "–" + s.endTime));
-    if (s.iceOption) schedRows += panelRow("Ice option", esc(s.iceOption === "full" ? "Full ice" : "Half ice"));
+    if (s.iceOption) schedRows += panelRow("Ice sheet", esc(sheetLabel(s.iceOption)));
   } else if (b.serviceType === "seasonal") {
     schedRows += panelRow("Program", esc(s.program));
     schedRows += panelRow("Season", esc(s.season));
@@ -1069,6 +1071,10 @@ function renderCurrentTable() {
   else if (view === "memberships") renderMembershipsTable();
   else renderTable();
 }
+
+/* A customer booking in another tab, or a second manager acting on the same
+   data, lands here without either page polling. */
+onStoreChange(() => refresh());
 
 function refresh() {
   renderStats();

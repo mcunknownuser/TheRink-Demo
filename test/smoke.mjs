@@ -152,10 +152,31 @@ ok("CSV export includes expected columns and all rows", () => {
   const lines = csv.split("\r\n");
   assert.equal(
     lines[0],
-    "Ref,Created,Service,Location,Schedule,Participant,Paid with,Deposit,Status,Email,Phone"
+    "Ref,Created,Brand,Service,Location,Schedule,Participant,Paid with,Deposit,Status,Email,Phone"
   );
   assert.equal(lines.length, store.getBookings().length + 1);
   assert.equal(csv.includes(newBooking.ref), true);
+  /* A mixed-brand export has to be separable once it is in a spreadsheet. */
+  assert.equal(csv.includes("Testify Performance"), true);
+  assert.equal(csv.includes("RINK"), true);
+});
+
+ok("ice rental sells three named sheets, not full/half", () => {
+  assert.deepEqual(catalog.ICE_SHEETS.map((x) => x.id), ["standard", "training", "goalie"]);
+  assert.equal(catalog.depositFor("ice-rental", "standard"), 150);
+  assert.equal(catalog.depositFor("ice-rental", "training"), 100);
+  assert.equal(catalog.depositFor("ice-rental", "goalie"), 75);
+  assert.equal(catalog.depositFor("ice-rental", "full"), null, "the old value set is gone");
+  assert.equal(catalog.sheetLabel("goalie"), "Goalie Sheet");
+  /* An unknown id still renders something truthful rather than blank. */
+  assert.equal(catalog.sheetLabel("full"), "full");
+
+  const rentals = store.getBookings().filter((b) => b.serviceId === "ice-rental");
+  assert.equal(rentals.length > 0, true);
+  for (const r of rentals) {
+    assert.ok(catalog.getSheet(r.schedule.iceOption), r.ref + " must name a real sheet");
+    assert.ok(store.formatScheduleLine(r).includes(catalog.sheetLabel(r.schedule.iceOption)));
+  }
 });
 
 /* 5. Hardening (REVIEW.md MINOR-3 / MINOR-4) */

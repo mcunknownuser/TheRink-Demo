@@ -27,7 +27,8 @@ import {
   formatMoneyCAD,
   formatScheduleLine,
   paymentLine,
-  brandOfBooking
+  brandOfBooking,
+  onStoreChange
 } from "./store.js";
 
 import {
@@ -499,6 +500,16 @@ function handlePurchase(account) {
 }
 
 /* ---- Orchestration ---- */
+
+/*
+ * The front desk confirming a booking or handing back a credit shows up here
+ * live. Suppressed while a purchase form is open — re-rendering would wipe
+ * half-typed card details, and no remote change is worth that.
+ */
+onStoreChange(() => {
+  if (buyingType) return;
+  render();
+});
 
 function render() {
   const email = currentEmail();

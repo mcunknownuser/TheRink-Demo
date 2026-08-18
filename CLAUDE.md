@@ -33,6 +33,14 @@ the stock server also omits) so that class of bug can't happen.
 | `account.html` | "My RINK" — credit balances, bookings, credit history (email sign-in, no password) |
 | `dashboard.html` | Manager dashboard: Bookings, Memberships (with MRR) and Accounts views, brand filter (no auth) |
 
+## Live cross-tab sync
+
+Pages listen for the `storage` event via `onStoreChange()` in `store.js`. That
+event fires in *other* tabs of the same origin, so a manager confirming a
+booking or comping a credit reaches an already-open customer tab with no
+polling and no reload. The account page suppresses it while a purchase form is
+open — re-rendering would wipe half-typed card details.
+
 ## Two brands, one platform
 
 RINK runs the ice; Testify Performance (`testifyperformance.ca`) runs off-ice
@@ -71,7 +79,7 @@ All in the browser — there is no backend:
 - `localStorage["rink.bookings"]` — JSON array of booking records (statuses: `pending` / `confirmed` / `cancelled`).
 - `localStorage["rink.credits"]` — append-only credit ledger. Balances are **derived** by summing `qty`, never stored.
 - `localStorage["rink.accounts"]` — optional profile overlay (name/phone); accounts themselves are derived from `contact.email` on bookings.
-- `localStorage["rink.seedVersion"]` — seed marker (currently `"3"`); 17 sample bookings across both brands and a matching ledger are materialized with relative dates on first load. "Reset demo data" on the dashboard clears every key and reseeds.
+- `localStorage["rink.seedVersion"]` — seed marker (currently `"4"`); 17 sample bookings across both brands and a matching ledger are materialized with relative dates on first load. "Reset demo data" on the dashboard clears every key and reseeds.
 - `sessionStorage["rink.draft"]` — in-progress wizard state (never contains card details; only `cardLast4` is ever stored, on the booking record).
 - `sessionStorage["rink.session"]` — `{ email }` of the signed-in customer.
 
@@ -101,10 +109,10 @@ CSV), `accounts.js` (ledger, balances, sign-in, derived accounts), `card.js`
 cd "/Users/nathansamson/Desktop/The Rink Demo" && node test/smoke.mjs
 ```
 
-23 tests over the data layer: seeding, booking creation, status transitions,
+24 tests over the data layer: seeding, booking creation, status transitions,
 CSV, credit purchase/redemption/refund/forfeit/comp, the 24-hour cancellation
 policy, derived accounts, brand coverage, membership rates and MRR, and
-malformed-input handling for both stores. Uses
+ice sheets, and malformed-input handling for both stores. Uses
 localStorage/sessionStorage stubs; no browser required.
 
 ## Docs index
@@ -137,6 +145,8 @@ Deliberately not addressed — each needs a decision, not just a correction:
   $99.99 assessment fee are published on their site and are real. The $150
   deposits on R1 Off-Season Training and the ACL Program are **invented** —
   they publish no programme pricing. Confirm before showing these as real.
+  The same applies to ice-sheet deposits ($150 / $100 / $75): the three
+  surfaces and their dimensions are real, the prices are placeholders.
 - **R1 is claimed by both.** therink.ca lists an "R1 Off-Season Program" and
   testifyperformance.ca lists "R1 Hockey Off Season". The demo models them as
   two halves of one programme: `r1-offseason` (RINK, on-ice) and `r1-training`
@@ -149,8 +159,4 @@ Deliberately not addressed — each needs a decision, not just a correction:
   separate from `LOCATIONS`; right now camps just run at the two facilities.
 - **Clinics** are modelled as front-desk-only, but really sell online via
   EZFacility as packages — the same credit model this build already supports.
-- **Ice rental** is full/half; the real facility has three named sheets
-  (Standard 200×85, Training 120×60, Goalie 60×35).
-- **No live cross-tab sync.** Each page reads storage on load and after its own
-  actions; there is no `storage` listener. A manager comping a credit will not
-  appear in an already-open customer tab until it reloads.
+- **Camp venues** are still the two facilities (see above).

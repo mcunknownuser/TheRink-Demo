@@ -1,11 +1,13 @@
 /*
- * seed.js — 12 seed bookings (STRATEGY.md §4.4), defined as templates with
+ * seed.js — 17 seed bookings across both brands (STRATEGY.md §4.4), defined as
+ * templates with
  * relative day offsets and materialized to absolute dates at seed time, so the
  * demo looks current whenever it is first run.
  *
- * Distribution: 6 confirmed, 4 pending, 2 cancelled. Every location and all
- * three booking shapes are represented; createdAt spreads from 13 days ago to
- * a few hours ago with 6 records inside the trailing 7 days.
+ * Distribution: 9 confirmed, 6 pending, 2 cancelled — 12 RINK, 5 Testify.
+ * Every location and every booking shape is represented, including three
+ * memberships. One contact (s.hartley@mymts.net) deliberately holds bookings
+ * on both brands, which is the cross-brand account the pitch turns on.
  */
 
 import { slotEndTime } from "./catalog.js";
@@ -117,7 +119,7 @@ const TEMPLATES = [
     locationName: "RINK Training Centre — Oak Bluff, MB",
     eventOffsetDays: 7,
     startTime: "20:00",
-    iceOption: "full",
+    iceOption: "standard",
     participant: { groupName: "Winnipeg Selects U13", skaterCount: 17 },
     contact: { name: "Mike Reimer", email: "mike.reimer@outlook.com", phone: "(204) 331-7845" },
     amount: 150,
@@ -135,7 +137,7 @@ const TEMPLATES = [
     locationName: "RINK Kelowna — Kelowna, BC",
     eventOffsetDays: 10,
     startTime: "08:00",
-    iceOption: "half",
+    iceOption: "goalie",
     participant: { groupName: "Okanagan Old-Timers", skaterCount: 12 },
     contact: { name: "Joanne Kereluk", email: "jkereluk@shaw.ca", phone: "(250) 717-2934" },
     amount: 75,

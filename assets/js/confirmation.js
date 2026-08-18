@@ -4,9 +4,18 @@
  * read-only recap. Never mutates data; shows a not-found state for bad refs.
  */
 
-import { ensureSeed, findBooking, formatDate, formatMoneyCAD, isCreditPaid, isMembership, brandOfBooking } from "./store.js";
+import {
+  ensureSeed,
+  findBooking,
+  formatDate,
+  formatMoneyCAD,
+  isCreditPaid,
+  isMembership,
+  brandOfBooking,
+  onStoreChange
+} from "./store.js";
 import { balanceOf } from "./accounts.js";
-import { CREDIT_TYPES, getLocation, getBrand, getTier, streamLabel } from "./catalog.js";
+import { CREDIT_TYPES, getLocation, getBrand, getTier, streamLabel, sheetLabel } from "./catalog.js";
 
 ensureSeed();
 
@@ -80,7 +89,7 @@ function renderBooking(b) {
   if (b.serviceType === "hourly") {
     schedRows += row("Date", formatDate(s.date));
     schedRows += row("Time", s.startTime + "–" + s.endTime);
-    if (s.iceOption) schedRows += row("Ice option", s.iceOption === "full" ? "Full ice" : "Half ice");
+    if (s.iceOption) schedRows += row("Ice sheet", sheetLabel(s.iceOption));
   } else if (b.serviceType === "seasonal") {
     schedRows += row("Program", s.program);
     schedRows += row("Season", s.season);
@@ -164,7 +173,15 @@ function renderBooking(b) {
   page.innerHTML = html;
 }
 
-const ref = new URLSearchParams(window.location.search).get("ref");
-const booking = ref ? findBooking(ref) : null;
-if (booking) renderBooking(booking);
-else renderNotFound();
+function show() {
+  const ref = new URLSearchParams(window.location.search).get("ref");
+  const booking = ref ? findBooking(ref) : null;
+  if (booking) renderBooking(booking);
+  else renderNotFound();
+}
+
+/* If the front desk confirms this booking while the customer still has the
+   page open, the badge should change under them. */
+onStoreChange(show);
+
+show();
