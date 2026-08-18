@@ -557,11 +557,34 @@ fieldset.option-set legend {
   color: var(--ink); margin-bottom: var(--sp-2); padding: 0;
 }
 .option-set .option-list { margin-bottom: 0; }
+/*
+ * Service-group heading (wizard step 1). The old version was 12px muted grey
+ * above 14px black card titles — a label quieter than the things it labels, so
+ * four groups read as one undifferentiated stack. Three things fix it:
+ * out-rank the cards, rule the group off with its brand's accent, and space it
+ * asymmetrically so the heading binds to what follows rather than floating
+ * between two groups.
+ */
 .option-set__group-head {
-  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-cap);
-  text-transform: uppercase; letter-spacing: var(--ls-btn); color: var(--ink-70);
-  margin: var(--sp-4) 0 var(--sp-2);
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: var(--sp-2) var(--sp-3);
+  margin: var(--sp-7) 0 var(--sp-4);   /* 48 above, 16 below */
+  padding-top: var(--sp-4);
+  border-top: 2px solid var(--red);
 }
+.option-set__group-head:first-of-type { margin-top: var(--sp-2); }
+.option-set__group-head h3 {
+  margin: 0;
+  font-size: var(--fs-h3);            /* 18px — above the 14px card titles */
+  color: var(--black);
+}
+.option-set__group-sub {
+  flex: 1 1 auto;
+  font-family: var(--font-body); font-weight: 400; font-size: var(--fs-xs);
+  text-transform: none; letter-spacing: 0; color: var(--ink-70);
+}
+/* Testify's groups are ruled and tagged in their own gold. */
+.option-set__group-head--testify { border-top-color: #ad8400; }
 
 .option { position: relative; display: block; }
 .option input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }

@@ -278,17 +278,24 @@ function renderStep1() {
     html += '<div class="form-notice" role="status">Schedule cleared for the new service. Your participant and contact details are saved.</div>';
   }
   html += groupError("service");
+  /* Each group is headed by its brand, its name and what the booking shape is,
+     so four stacked groups read as four groups rather than one long list. */
   const groups = [
-    ["RINK — Sessions & ice", servicesInGroup("sessions")],
-    ["RINK — Programs", servicesInGroup("programs")],
-    ["RINK — Camps", servicesInGroup("camps")],
-    ["Testify Performance — Off-ice training", servicesInGroup("training")]
+    { title: "Sessions & ice", sub: "Booked by the hour", brand: "rink", services: servicesInGroup("sessions") },
+    { title: "Programs", sub: "Seasonal registration", brand: "rink", services: servicesInGroup("programs") },
+    { title: "Camps", sub: "Week-long, Monday to Friday", brand: "rink", services: servicesInGroup("camps") },
+    { title: "Off-ice training", sub: "Memberships and assessments", brand: "testify", services: servicesInGroup("training") }
   ];
   html += '<fieldset class="option-set"><legend class="visually-hidden">Service</legend>';
-  for (const [label, services] of groups) {
-    html += '<p class="option-set__group-head">' + esc(label) + "</p>";
+  for (const group of groups) {
+    html +=
+      '<div class="option-set__group-head option-set__group-head--' + esc(group.brand) + '">' +
+      '<span class="brand-tag brand-tag--' + esc(group.brand) + '">' + esc(getBrand(group.brand).name) + "</span>" +
+      "<h3>" + esc(group.title) + "</h3>" +
+      '<span class="option-set__group-sub">' + esc(group.sub) + "</span>" +
+      "</div>";
     html += '<ul class="option-list option-list--services">';
-    for (const svc of services) {
+    for (const svc of group.services) {
       html +=
         "<li>" +
         optionRow(svc.name, svc.id, draft.serviceId === svc.id, {
