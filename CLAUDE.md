@@ -11,10 +11,17 @@ external requests, no real payments.
 ## Run it
 
 ```
-cd "/Users/nathansamson/Desktop/The Rink Demo" && python3 -m http.server
+cd "/Users/nathansamson/Desktop/The Rink Demo" && python3 serve.py
 ```
 
 Then open http://localhost:8000/ (the path contains spaces — always quote it).
+
+**Use `serve.py`, not `python3 -m http.server`.** The site is ES modules that
+import each other, and the stock server sends no cache headers. A browser will
+hold an old `catalog.js` beside a new `book.js`, the import fails to resolve,
+and the module never executes — the page renders *completely empty* with
+nothing in the console. `serve.py` sends `no-store` (and a UTF-8 charset, which
+the stock server also omits) so that class of bug can't happen.
 
 ## Pages
 
