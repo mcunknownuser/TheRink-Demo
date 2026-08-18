@@ -27,7 +27,7 @@ the stock server also omits) so that class of bug can't happen.
 
 | Page | Purpose |
 |---|---|
-| `index.html` | Home / services catalog (clinics listed but front-desk only) |
+| `index.html` | Home / services catalog, with a brand switch (All / RINK / Testify) driven by the URL hash |
 | `book.html` | 5-step booking wizard; step 5 is deposit, credit redemption, or package purchase |
 | `confirmation.html?ref=RNK-XXXXX` | Booking confirmation / not-found state |
 | `account.html` | "My RINK" — credit balances, bookings, credit history (email sign-in, no password) |
@@ -91,7 +91,7 @@ JS modules (`assets/js/`): `catalog.js` (services/locations/slots/pricing domain
 data), `store.js` (data layer: storage keys, refs, transitions, formatters,
 CSV), `accounts.js` (ledger, balances, sign-in, derived accounts), `card.js`
 (shared simulated-card validation), `seed.js` (seed templates),
-`book.js` / `confirmation.js` / `account.js` / `dashboard.js` (page logic).
+`home.js` / `book.js` / `confirmation.js` / `account.js` / `dashboard.js` (page logic).
 `package.json` exists only to mark the JS as ES modules for Node
 (`node --check`, `node test/smoke.mjs`) — it is not a build setup.
 

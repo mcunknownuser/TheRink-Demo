@@ -927,6 +927,45 @@ fieldset.option-set legend {
 .ledger__delta { font-weight: 700; color: var(--ink-70); }
 .ledger__delta.is-positive { color: var(--blue); }
 
+/* ---- 5.22 Brand switch (home) ----
+ * Segmented control choosing which brand's catalogue is shown. Zero radius,
+ * shared border between segments, and the selected segment carries that
+ * brand's accent — red for RINK, gold for Testify — so the control itself
+ * says which world you are in.
+ */
+
+.brand-switch {
+  display: flex; flex-wrap: wrap;
+  margin: 0 0 var(--sp-5);
+  border: 1px solid var(--black);
+  width: fit-content; max-width: 100%;
+}
+.brand-switch__option { position: relative; display: block; }
+.brand-switch__option input {
+  position: absolute; opacity: 0; pointer-events: none;
+}
+.brand-switch__option span {
+  display: block;
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-cap);
+  text-transform: uppercase; letter-spacing: var(--ls-btn);
+  color: var(--ink-70); background: var(--white);
+  padding: var(--sp-3) var(--sp-5);
+  cursor: pointer; white-space: nowrap;
+  transition: color var(--speed) ease, background-color var(--speed) ease;
+}
+.brand-switch__option + .brand-switch__option span { border-left: 1px solid var(--black); }
+.brand-switch__option span:hover { color: var(--black); background: var(--hover-tint); }
+.brand-switch__option input:focus-visible + span { outline: 2px solid var(--red); outline-offset: -2px; }
+
+.brand-switch__option input:checked + span { background: var(--black); color: var(--white); }
+/* Each brand's segment lights in its own accent when chosen. */
+.brand-switch__option--rink input:checked + span { background: #ea0029; }
+.brand-switch__option--testify input:checked + span { background: #ad8400; }
+
+/* The switch sits in its own band so it can head both catalogue sections. */
+.band--switch { padding: var(--sp-7) 0 0; }
+.band--tight { padding-top: var(--sp-6); }
+
 /* ---- 5.21 Membership (Testify) ---- */
 
 .included { border: var(--border); border-left: var(--edge) solid var(--red); padding: var(--sp-4) var(--sp-5); margin-bottom: var(--sp-5); }

@@ -20,13 +20,35 @@
 
   <main>
 
-    <section class="band" id="services">
+    <div class="band band--switch">
       <div class="container">
         <div class="section-head">
           <span class="slash-pair" aria-hidden="true"></span>
           <h2>Our services</h2>
         </div>
-        <p class="section-intro">Nine RINK services and four Testify Performance services across two facilities. Sessions and ice are booked by the hour, programs by season, camps by the week. Clinics are registered through the front desk.</p>
+
+        <div class="brand-switch" id="brandSwitch" role="radiogroup" aria-label="Show services from">
+          <label class="brand-switch__option">
+            <input type="radio" name="brandFilter" value="all" checked>
+            <span>All services</span>
+          </label>
+          <label class="brand-switch__option brand-switch__option--rink">
+            <input type="radio" name="brandFilter" value="rink">
+            <span>RINK</span>
+          </label>
+          <label class="brand-switch__option brand-switch__option--testify">
+            <input type="radio" name="brandFilter" value="testify">
+            <span>Testify Performance</span>
+          </label>
+        </div>
+        <p class="visually-hidden" id="brandSwitchStatus" role="status" aria-live="polite"></p>
+
+        <p class="section-intro" id="servicesIntro">Everything bookable across both brands, at two facilities.</p>
+      </div>
+    </div>
+
+    <section class="band band--tight" id="services">
+      <div class="container">
 
         <div class="catalog-group">
           <div class="group-head">
@@ -286,10 +308,7 @@
     </div>
   </footer>
 
-  <script type="module">
-    import { ensureSeed } from "./assets/js/store.js";
-    ensureSeed();
-  </script>
+  <script type="module" src="assets/js/home.js"></script>
 
 </body>
 </html>

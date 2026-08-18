@@ -36,7 +36,7 @@ SHARED = ["catalog.js", "card.js", "seed.js", "store.js", "accounts.js"]
 
 # page id -> (html file, page script, body class)
 PAGES = {
-    "home": ("index.html", None, ""),
+    "home": ("index.html", "home.js", ""),
     "book": ("book.html", "book.js", ""),
     "confirmation": ("confirmation.html", "confirmation.js", ""),
     "account": ("account.html", "account.js", ""),
@@ -159,7 +159,7 @@ ROUTER_JS = """
 
 let ROUTE_QUERY = "";
 const PAGE_INIT = {
-  home: null,
+  home: init_home,
   book: init_book,
   confirmation: init_confirmation,
   account: init_account,
