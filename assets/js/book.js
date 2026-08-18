@@ -1131,10 +1131,14 @@ function validateDetails(silent) {
 function focusFirstError() {
   const firstError = panel.querySelector(".has-error .input, .field__error");
   if (!firstError) return;
-  if (firstError.classList.contains("input")) firstError.focus();
+  /* Same browser disagreement as scrollToStepTop(): bring it into view
+     ourselves rather than hoping focus() does, or an error can be announced
+     off-screen with nothing visibly wrong on the part of the page in view. */
+  firstError.scrollIntoView({ block: "center", inline: "nearest" });
+  if (firstError.classList.contains("input")) firstError.focus({ preventScroll: true });
   else {
     const title = panel.querySelector("#stepTitle");
-    if (title) title.focus();
+    if (title) title.focus({ preventScroll: true });
   }
 }
 
@@ -1358,6 +1362,28 @@ function applyBrandSkin() {
   }
 }
 
+/*
+ * Put the viewport back at the top of the wizard on a step change.
+ *
+ * This used to be left to `title.focus()`, on the assumption that focusing an
+ * element scrolls it into view. Browsers disagree: Chrome scrolls a
+ * tabindex="-1" heading into view, Safari frequently does not. The result in
+ * Safari was a new step rendered with the viewport still parked wherever the
+ * previous step had been scrolled to — usually its Continue button, so the
+ * next step appeared to load "at the bottom".
+ *
+ * Scrolling explicitly makes it the same everywhere. The offset clears the
+ * sticky header, which would otherwise cover the step indicator.
+ */
+function scrollToStepTop() {
+  const anchor = stepsList || panel;
+  if (!anchor) return;
+  const header = document.querySelector(".site-header");
+  const offset = (header ? header.offsetHeight : 0) + 16;
+  const top = anchor.getBoundingClientRect().top + window.pageYOffset - offset;
+  window.scrollTo(0, Math.max(0, top));
+}
+
 function render(moveFocus = true) {
   showServiceChangeNoticeCleanup();
   applyBrandSkin();
@@ -1368,8 +1394,11 @@ function render(moveFocus = true) {
   saveDraft();
   wireControls();
   if (moveFocus) {
+    scrollToStepTop();
+    /* Scroll is handled above, so focus must not also try — see the note on
+       scrollToStepTop() for why we can't leave it to the browser. */
     const title = panel.querySelector("#stepTitle");
-    if (title) title.focus();
+    if (title) title.focus({ preventScroll: true });
   }
   if (Object.keys(pendingErrors).length > 0) focusFirstError();
 }
