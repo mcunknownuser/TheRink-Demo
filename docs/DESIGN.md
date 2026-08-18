@@ -895,3 +895,34 @@ The reviewer verifies every line. Each DON'T is paired with the DO that replaces
 | 10 | Airy oversized body text (18–20px), tables restyled as padded card lists, low-density "dashboard" look. | 16px body, 13px table cells, 11px column headers (§3); the dashboard is a dense working instrument with a real `<table>`. |
 
 Reviewer's 30-second smoke test: view any page and look for (a) a curve, (b) a blur, (c) a hue that isn't red/blue/ink/black/gray, (d) a lowercase heading, (e) a network request leaving localhost. Any hit fails review.
+
+---
+
+## §2.4 Brand skin — Testify Performance (added 2026-08)
+
+**Deviation from the five-colour rule, recorded deliberately.**
+
+DESIGN.md §2 fixes the palette at five colours. The Testify Performance
+partnership adds a sixth hue: their gold `#ad8400` (hover `#9c7700`).
+
+It is *scoped*, never global. `[data-brand="testify"]` remaps two tokens:
+
+    --red   →  #ad8400   (their accent, in the accent slot)
+    --black →  #101010   (their near-black)
+
+Nothing else changes. Every component already reads `var(--red)` rather than a
+literal, so the whole system re-skins with no per-component work — which is how
+Testify's own site does it, via a `.skin` class carrying the same gold.
+
+Gold never appears on a RINK surface, and red never appears on a Testify one.
+
+**Why the two systems merge cleanly:** their CSS and RINK's already share the
+same display typeface (Geom Graphic SemiBold) and three of the same neutrals —
+`#393939` ink, `#f4f4f4` gray, `#1e1e1e` dark band. The brands were built from
+one base with an accent swap; this reproduces that relationship rather than
+inventing one.
+
+**Type is not swapped.** Testify's site also loads Geom Graphic Regular and
+Saira. The demo ships only Geom SemiBold + Open Sans and makes no external
+requests, and Geom Graphic is a commercial licence. The brand difference
+carries on colour alone.

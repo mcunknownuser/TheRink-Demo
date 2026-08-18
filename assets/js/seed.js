@@ -36,7 +36,12 @@ const EMPTY_SCHEDULE = {
   iceOption: null,
   program: null,
   season: null,
-  campWeek: null
+  campWeek: null,
+  tier: null,
+  stream: null,
+  startDate: null,
+  termMonths: null,
+  monthlyRate: null
 };
 
 const EMPTY_PARTICIPANT = {
@@ -53,6 +58,7 @@ const TEMPLATES = [
     serviceId: "player-1on1",
     serviceName: "Player 1-on-1 Session",
     serviceType: "hourly",
+    brand: "rink",
     locationId: "trc",
     locationName: "RINK Training Centre — Oak Bluff, MB",
     eventOffsetDays: -2,
@@ -70,6 +76,7 @@ const TEMPLATES = [
     serviceId: "player-1on1",
     serviceName: "Player 1-on-1 Session",
     serviceType: "hourly",
+    brand: "rink",
     locationId: "trc",
     locationName: "RINK Training Centre — Oak Bluff, MB",
     eventOffsetDays: 3,
@@ -87,6 +94,7 @@ const TEMPLATES = [
     serviceId: "goalie-1on1",
     serviceName: "Goalie 1-on-1 Session",
     serviceType: "hourly",
+    brand: "rink",
     locationId: "kelowna",
     locationName: "RINK Kelowna — Kelowna, BC",
     eventOffsetDays: 5,
@@ -104,6 +112,7 @@ const TEMPLATES = [
     serviceId: "ice-rental",
     serviceName: "Ice Rental",
     serviceType: "hourly",
+    brand: "rink",
     locationId: "trc",
     locationName: "RINK Training Centre — Oak Bluff, MB",
     eventOffsetDays: 7,
@@ -121,6 +130,7 @@ const TEMPLATES = [
     serviceId: "ice-rental",
     serviceName: "Ice Rental",
     serviceType: "hourly",
+    brand: "rink",
     locationId: "kelowna",
     locationName: "RINK Kelowna — Kelowna, BC",
     eventOffsetDays: 10,
@@ -138,6 +148,7 @@ const TEMPLATES = [
     serviceId: "dev-program",
     serviceName: "Development Programs",
     serviceType: "seasonal",
+    brand: "rink",
     locationId: "trc",
     locationName: "RINK Training Centre — Oak Bluff, MB",
     program: "U9 Development",
@@ -154,6 +165,7 @@ const TEMPLATES = [
     serviceId: "dev-program",
     serviceName: "Development Programs",
     serviceType: "seasonal",
+    brand: "rink",
     locationId: "trc",
     locationName: "RINK Training Centre — Oak Bluff, MB",
     program: "U11 Advanced",
@@ -170,6 +182,7 @@ const TEMPLATES = [
     serviceId: "dev-program",
     serviceName: "Development Programs",
     serviceType: "seasonal",
+    brand: "rink",
     locationId: "kelowna",
     locationName: "RINK Kelowna — Kelowna, BC",
     program: "U13 High-Performance",
@@ -186,6 +199,7 @@ const TEMPLATES = [
     serviceId: "goalie-dev-program",
     serviceName: "Goalie Development Programs",
     serviceType: "seasonal",
+    brand: "rink",
     locationId: "trc",
     locationName: "RINK Training Centre — Oak Bluff, MB",
     program: "U13",
@@ -202,6 +216,7 @@ const TEMPLATES = [
     serviceId: "learn-to-skate",
     serviceName: "Learn to Skate",
     serviceType: "seasonal",
+    brand: "rink",
     locationId: "trc",
     locationName: "RINK Training Centre — Oak Bluff, MB",
     program: "CanSkate Stages 1–6 (ages 5–12)",
@@ -218,6 +233,7 @@ const TEMPLATES = [
     serviceId: "figure-skating",
     serviceName: "Figure Skating",
     serviceType: "seasonal",
+    brand: "rink",
     locationId: "trc",
     locationName: "RINK Training Centre — Oak Bluff, MB",
     program: "Junior Development & Performance",
@@ -234,6 +250,7 @@ const TEMPLATES = [
     serviceId: "hockey-camp",
     serviceName: "Hockey Camps",
     serviceType: "camp",
+    brand: "rink",
     locationId: "kelowna",
     locationName: "RINK Kelowna — Kelowna, BC",
     campWeek: "Aug 17–21, 2026",
@@ -243,6 +260,101 @@ const TEMPLATES = [
     cardLast4: "5057",
     status: "cancelled",
     created: [11, 2, 40]
+  },
+  /* ---- Testify Performance (the off-ice half of the partnership) ---- */
+  {
+    ref: "RNK-51204",
+    serviceId: "testify-membership",
+    serviceName: "Testify Membership",
+    serviceType: "membership",
+    brand: "testify",
+    locationId: "trc",
+    locationName: "RINK Training Centre — Oak Bluff, MB",
+    tier: "gold",
+    stream: "athlete",
+    startOffsetDays: -21,
+    termMonths: 3,
+    monthlyRate: 460,
+    participant: { name: "Nolan Hartley", ageGroup: "U13", notes: "Off-ice to pair with his on-ice sessions." },
+    contact: { name: "Sarah Hartley", email: "s.hartley@mymts.net", phone: "(204) 452-8067" },
+    amount: 99.99,
+    cardLast4: "4412",
+    status: "confirmed",
+    created: [21, 5, 12]
+  },
+  {
+    ref: "RNK-63870",
+    serviceId: "testify-membership",
+    serviceName: "Testify Membership",
+    serviceType: "membership",
+    brand: "testify",
+    locationId: "kelowna",
+    locationName: "RINK Kelowna — Kelowna, BC",
+    tier: "bronze",
+    stream: "lifestyle",
+    startOffsetDays: -6,
+    termMonths: 3,
+    monthlyRate: 170,
+    participant: { name: "Joanne Kereluk", ageGroup: "Adult", notes: "" },
+    contact: { name: "Joanne Kereluk", email: "jkereluk@shaw.ca", phone: "(250) 717-2934" },
+    amount: 99.99,
+    cardLast4: "5544",
+    status: "confirmed",
+    created: [6, 4, 5]
+  },
+  {
+    ref: "RNK-39642",
+    serviceId: "testify-membership",
+    serviceName: "Testify Membership",
+    serviceType: "membership",
+    brand: "testify",
+    locationId: "trc",
+    locationName: "RINK Training Centre — Oak Bluff, MB",
+    tier: "silver",
+    stream: "athlete",
+    startOffsetDays: 4,
+    termMonths: 3,
+    monthlyRate: 345,
+    participant: { name: "Liam Fontaine", ageGroup: "U11", notes: "Starting after the current block." },
+    contact: { name: "Danielle Fontaine", email: "danielle.fontaine@hotmail.com", phone: "(431) 774-2209" },
+    amount: 99.99,
+    cardLast4: "7302",
+    status: "pending",
+    created: [1, 2, 35]
+  },
+  {
+    ref: "RNK-80517",
+    serviceId: "testify-assessment",
+    serviceName: "Performance Assessment",
+    serviceType: "hourly",
+    brand: "testify",
+    locationId: "trc",
+    locationName: "RINK Training Centre — Oak Bluff, MB",
+    eventOffsetDays: 2,
+    startTime: "11:00",
+    participant: { name: "Owen Klassen", ageGroup: "U13", notes: "Pre-season screen." },
+    contact: { name: "Paul Klassen", email: "pklassen@icloud.com", phone: "(204) 897-6402" },
+    amount: 99.99,
+    cardLast4: "0918",
+    status: "pending",
+    created: [0, 5, 40]
+  },
+  {
+    ref: "RNK-24196",
+    serviceId: "r1-training",
+    serviceName: "R1 Off-Season Training",
+    serviceType: "seasonal",
+    brand: "testify",
+    locationId: "kelowna",
+    locationName: "RINK Kelowna — Kelowna, BC",
+    program: "R1 Hockey — Kelowna",
+    season: "Spring Block 2027 (Apr 6 – May 29)",
+    participant: { name: "Lucas Braun", ageGroup: "U15", notes: "Pairs with his goalie sessions." },
+    contact: { name: "Dan Braun", email: "dbraun@telus.net", phone: "(250) 862-4179" },
+    amount: 150,
+    cardLast4: "9936",
+    status: "confirmed",
+    created: [5, 3, 22]
   }
 ];
 
@@ -259,12 +371,19 @@ export function materializeSeed(now = new Date()) {
       schedule.season = t.season;
     } else if (t.serviceType === "camp") {
       schedule.campWeek = t.campWeek;
+    } else if (t.serviceType === "membership") {
+      schedule.tier = t.tier;
+      schedule.stream = t.stream;
+      schedule.startDate = dateFromToday(now, t.startOffsetDays);
+      schedule.termMonths = t.termMonths;
+      schedule.monthlyRate = t.monthlyRate;
     }
     return {
       ref: t.ref,
       serviceId: t.serviceId,
       serviceName: t.serviceName,
       serviceType: t.serviceType,
+      brand: t.brand || "rink",
       locationId: t.locationId,
       locationName: t.locationName,
       schedule,

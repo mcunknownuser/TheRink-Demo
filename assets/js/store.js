@@ -14,9 +14,9 @@ export const SEED_KEY = "rink.seedVersion";
 export const CREDITS_KEY = "rink.credits";
 export const ACCOUNTS_KEY = "rink.accounts";
 
-/* Bumped to 2 when the credit ledger was introduced: a browser holding v1 data
-   has bookings but no ledger, so it must reseed to get a coherent demo. */
-export const SEED_VERSION = "2";
+/* Bumped when the stored shape changes and old data would render incoherently:
+   2 added the credit ledger, 3 added brands and Testify memberships. */
+export const SEED_VERSION = "3";
 
 function storage() {
   return globalThis.localStorage;
@@ -96,6 +96,7 @@ export function createBooking(data) {
     serviceId: data.serviceId,
     serviceName: data.serviceName,
     serviceType: data.serviceType,
+    brand: data.brand || "rink",
     locationId: data.locationId,
     locationName: data.locationName,
     schedule: {
@@ -106,6 +107,11 @@ export function createBooking(data) {
       program: null,
       season: null,
       campWeek: null,
+      tier: null,
+      stream: null,
+      startDate: null,
+      termMonths: null,
+      monthlyRate: null,
       ...data.schedule
     },
     participant: {
@@ -230,6 +236,26 @@ export function depositLine(booking) {
   return formatMoneyCAD(booking.deposit.amount) + " · card ending " + booking.deposit.cardLast4;
 }
 
+/* Membership records are bookings too, but of a recurring shape: the amount
+   charged at checkout is the assessment fee, and the monthly rate runs after.
+   Keeping them in the booking store means the table, panel, account page and
+   CSV all handle them without a parallel pipeline. */
+export function isMembership(booking) {
+  return booking.serviceType === "membership";
+}
+
+/* Brand a record belongs to. Records written before the partnership are RINK. */
+export function brandOfBooking(booking) {
+  return booking.brand || "rink";
+}
+
+/* Monthly commitment for a live membership, 0 for anything else. Cancelled
+   memberships stop contributing. */
+export function monthlyValue(booking) {
+  if (!isMembership(booking) || booking.status === "cancelled") return 0;
+  return Number(booking.schedule.monthlyRate) || 0;
+}
+
 /* Was this booking paid with a session credit rather than a deposit? */
 export function isCreditPaid(booking) {
   return Boolean(booking.payment && booking.payment.method === "credit");
@@ -263,6 +289,11 @@ export function formatScheduleLine(booking) {
     let line = formatDate(s.date) + " · " + s.startTime + "–" + s.endTime;
     if (s.iceOption) line += s.iceOption === "full" ? " · Full ice" : " · Half ice";
     return line;
+  }
+  if (s.tier) {
+    const tier = s.tier.charAt(0).toUpperCase() + s.tier.slice(1);
+    const stream = s.stream === "lifestyle" ? "Lifestyle" : "Athlete";
+    return tier + " · " + stream + (s.startDate ? " · from " + formatDate(s.startDate) : "");
   }
   if (s.program) return s.program + " · " + s.season;
   if (s.campWeek) return s.campWeek;

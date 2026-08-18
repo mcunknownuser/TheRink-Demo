@@ -64,6 +64,84 @@ export const CAMP_WEEKS = [
   { label: "March Break — Mar 29 – Apr 2, 2027", monday: "2027-03-29", locations: ["trc", "kelowna"] }
 ];
 
+/* ---- Brands (STRATEGY 3.7) ----
+ *
+ * RINK and Testify Performance are partners operating out of the same two
+ * facilities: RINK runs the ice, Testify runs off-ice training and therapy.
+ * therink.ca and testifyperformance.ca link to each other, and their sites are
+ * built from one design system with a colour swap — same Geom typeface, same
+ * neutrals, red vs gold. That is exactly how this platform treats them: one
+ * catalog, one account, one dashboard, with the accent following the brand.
+ */
+
+export const BRANDS = {
+  rink: {
+    id: "rink",
+    name: "RINK",
+    tagline: "The Home of Hockey Development",
+    site: "https://therink.ca/home/"
+  },
+  testify: {
+    id: "testify",
+    name: "Testify Performance",
+    tagline: "Off-Ice Training, Therapy & Performance",
+    site: "https://testifyperformance.ca/"
+  }
+};
+
+export function getBrand(id) {
+  return BRANDS[id] || BRANDS.rink;
+}
+
+/* ---- Testify membership tiers (testifyperformance.ca/memberships) ----
+ *
+ * A membership is neither a deposit nor a credit: it is a recurring monthly
+ * commitment with a minimum term, entered through a paid assessment. The
+ * assessment fee is what is charged at checkout; the monthly rate starts after
+ * it. Two streams at every tier — Athlete and Lifestyle.
+ */
+
+export const MEMBERSHIP_ASSESSMENT_FEE = 99.99;
+export const MEMBERSHIP_MIN_TERM_MONTHS = 3;
+
+export const MEMBERSHIP_STREAMS = [
+  { id: "athlete", label: "Athlete", desc: "Sport-specific training built around a competitive season." },
+  { id: "lifestyle", label: "Lifestyle", desc: "General strength and conditioning, no sport calendar." }
+];
+
+export const MEMBERSHIP_TIERS = [
+  { id: "bronze", label: "Bronze", sessions: 2, athlete: 230, lifestyle: 170, perks: [] },
+  { id: "silver", label: "Silver", sessions: 3, athlete: 345, lifestyle: 255, perks: [] },
+  { id: "gold", label: "Gold", sessions: 4, athlete: 460, lifestyle: 340, perks: ["Unlimited program revisions"] },
+  { id: "platinum", label: "Platinum", sessions: 5, athlete: 550, lifestyle: 420, perks: ["Unlimited program revisions"] }
+];
+
+/* Included with every tier, per their memberships page. */
+export const MEMBERSHIP_INCLUDED = [
+  "Initial assessment",
+  "Customized program",
+  "Performance testing",
+  "Indoor track access",
+  "Recovery room access",
+  "Rapid clinic access",
+  "Towel service"
+];
+
+export function getTier(id) {
+  return MEMBERSHIP_TIERS.find((t) => t.id === id) || null;
+}
+
+export function monthlyRate(tierId, streamId) {
+  const tier = getTier(tierId);
+  if (!tier) return null;
+  return streamId === "lifestyle" ? tier.lifestyle : tier.athlete;
+}
+
+export function streamLabel(streamId) {
+  const s = MEMBERSHIP_STREAMS.find((x) => x.id === streamId);
+  return s ? s.label : "";
+}
+
 export const HOURLY_AGE_GROUPS = ["U7", "U9", "U11", "U13", "U15", "U18", "Junior", "Adult"];
 export const CAMP_AGE_GROUPS = ["U7", "U9", "U11", "U13", "U15"];
 
@@ -98,6 +176,7 @@ export const SERVICES = [
   {
     id: "player-1on1",
     name: "Player 1-on-1 Session",
+    brand: "rink",
     type: "hourly",
     group: "sessions",
     deposit: null,
@@ -111,6 +190,7 @@ export const SERVICES = [
   {
     id: "goalie-1on1",
     name: "Goalie 1-on-1 Session",
+    brand: "rink",
     type: "hourly",
     group: "sessions",
     deposit: null,
@@ -124,6 +204,7 @@ export const SERVICES = [
   {
     id: "ice-rental",
     name: "Ice Rental",
+    brand: "rink",
     type: "hourly",
     group: "sessions",
     deposit: { full: 150, half: 75 },
@@ -136,6 +217,7 @@ export const SERVICES = [
   {
     id: "dev-program",
     name: "Development Programs",
+    brand: "rink",
     type: "seasonal",
     group: "programs",
     deposit: 150,
@@ -150,6 +232,7 @@ export const SERVICES = [
   {
     id: "goalie-dev-program",
     name: "Goalie Development Programs",
+    brand: "rink",
     type: "seasonal",
     group: "programs",
     deposit: 150,
@@ -164,6 +247,7 @@ export const SERVICES = [
   {
     id: "r1-offseason",
     name: "R1 Off-Season Program",
+    brand: "rink",
     type: "seasonal",
     group: "programs",
     deposit: 200,
@@ -178,6 +262,7 @@ export const SERVICES = [
   {
     id: "learn-to-skate",
     name: "Learn to Skate",
+    brand: "rink",
     type: "seasonal",
     group: "programs",
     deposit: 75,
@@ -192,6 +277,7 @@ export const SERVICES = [
   {
     id: "figure-skating",
     name: "Figure Skating",
+    brand: "rink",
     type: "seasonal",
     group: "programs",
     deposit: 75,
@@ -206,6 +292,7 @@ export const SERVICES = [
   {
     id: "hockey-camp",
     name: "Hockey Camps",
+    brand: "rink",
     type: "camp",
     group: "camps",
     deposit: 125,
@@ -218,6 +305,7 @@ export const SERVICES = [
   {
     id: "player-clinic",
     name: "Player Clinics",
+    brand: "rink",
     type: "info",
     group: "clinics",
     deposit: null,
@@ -229,6 +317,7 @@ export const SERVICES = [
   {
     id: "goalie-clinic",
     name: "Goalie Clinics",
+    brand: "rink",
     type: "info",
     group: "clinics",
     deposit: null,
@@ -236,6 +325,87 @@ export const SERVICES = [
     desc: "Group clinics for skaters who play the position, run by RINK goaltending staff. Scheduled in blocks through the year.",
     locationsLine: "Training Centre · Kelowna",
     depositLine: null
+  }
+,
+  /* ---- Testify Performance (testifyperformance.ca) ----
+   *
+   * Off-ice half of the partnership, running out of the same two facilities.
+   * Membership rates and the assessment fee are published on their site.
+   * Program deposits are NOT published anywhere public — the two figures below
+   * are demo placeholders and should be confirmed with Testify before this is
+   * shown as real pricing.
+   */
+  {
+    id: "testify-membership",
+    name: "Testify Membership",
+    brand: "testify",
+    type: "membership",
+    group: "training",
+    deposit: null,
+    pricing: { model: "membership" },
+    locations: ["trc", "kelowna"],
+    desc: "Semi-private strength and conditioning on a monthly membership. Four tiers by weekly session count, in an Athlete or Lifestyle stream. Includes assessment, a custom program, performance testing, and recovery room access.",
+    locationsLine: "Training Centre · Kelowna",
+    depositLine: "From $170/month · $99.99 assessment"
+  },
+  {
+    id: "testify-assessment",
+    name: "Performance Assessment",
+    brand: "testify",
+    type: "hourly",
+    group: "training",
+    deposit: 99.99,
+    pricing: { model: "deposit" },
+    locations: ["trc", "kelowna"],
+    desc: "The one-hour movement and performance screen that opens a membership. Testing, a movement profile, and the plan built from it.",
+    locationsLine: "Training Centre · Kelowna",
+    depositLine: "$99.99 per assessment"
+  },
+  {
+    id: "r1-training",
+    name: "R1 Off-Season Training",
+    brand: "testify",
+    type: "seasonal",
+    group: "training",
+    deposit: 150,
+    pricing: { model: "deposit" },
+    locations: ["trc", "kelowna"],
+    desc: "The off-ice half of R1. Strength, speed and conditioning blocks that run alongside RINK's on-ice R1 program through the spring and summer.",
+    locationsLine: "Training Centre · Kelowna",
+    depositLine: "$150 deposit to register",
+    programs: ["R1 Hockey — Winnipeg", "R1 Hockey — Kelowna", "R1 Hockey — Female U15"],
+    seasons: R1_SEASONS
+  },
+  {
+    id: "acl-program",
+    name: "High Performance ACL Program",
+    brand: "testify",
+    type: "seasonal",
+    group: "training",
+    deposit: 150,
+    pricing: { model: "deposit" },
+    locations: ["trc"],
+    desc: "A structured return-to-sport and re-injury prevention block, run jointly by the training and therapy teams for athletes coming back from an ACL reconstruction.",
+    locationsLine: "Training Centre",
+    depositLine: "$150 deposit to register",
+    programs: ["Return to Sport", "Re-Injury Prevention"],
+    seasons: STANDARD_SEASONS
+  },
+  {
+    id: "testify-clinic",
+    name: "Therapy & Clinic Services",
+    brand: "testify",
+    type: "info",
+    group: "clinics",
+    deposit: null,
+    pricing: { model: "deposit" },
+    locations: ["trc", "kelowna"],
+    desc: "Physiotherapy, athletic therapy, massage therapy, naturopathic medicine, clinical counselling and mental performance — booked by appointment with a practitioner.",
+    locationsLine: "Training Centre · Kelowna",
+    depositLine: null,
+    /* Therapy runs on Jane App today. Listed here rather than booked, the same
+       way RINK's front-desk-only clinics are. */
+    externalBooking: { label: "Book on Jane App", url: "https://testifyperformance.janeapp.com/" }
   }
 ];
 
@@ -295,6 +465,29 @@ export function bookableServices() {
 
 export function servicesInGroup(group) {
   return SERVICES.filter((s) => s.group === group);
+}
+
+/* ---- Brand + membership lookups ---- */
+
+export function brandOf(serviceId) {
+  const s = getService(serviceId);
+  return (s && s.brand) || "rink";
+}
+
+export function servicesByBrand(brandId) {
+  return SERVICES.filter((s) => (s.brand || "rink") === brandId);
+}
+
+export function isMembershipService(serviceId) {
+  const p = pricingFor(serviceId);
+  return Boolean(p && p.model === "membership");
+}
+
+/* A membership's monthly commitment, from a booking's stored schedule. */
+export function membershipMonthly(schedule) {
+  if (!schedule) return null;
+  if (schedule.monthlyRate != null) return schedule.monthlyRate;
+  return monthlyRate(schedule.tier, schedule.stream);
 }
 
 /* ---- Pricing lookups ---- */
@@ -378,6 +571,7 @@ export function campWeeksAt(locationId) {
 export function scheduleSortValue(booking) {
   const s = booking.schedule || {};
   if (s.date) return s.date + "T" + (s.startTime || "00:00");
+  if (s.startDate) return s.startDate + "T00:00";
   if (s.season && SEASON_STARTS[s.season]) return SEASON_STARTS[s.season] + "T00:00";
   if (s.campWeek) {
     const week = CAMP_WEEKS.find((w) => w.label === s.campWeek);

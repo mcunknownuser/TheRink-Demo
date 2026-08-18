@@ -37,18 +37,64 @@ function ok(name, fn) {
 }
 
 /* 1. Seeding */
-ok("ensureSeed materializes 12 bookings and sets the marker", () => {
+ok("ensureSeed materializes 17 bookings and sets the marker", () => {
   const didSeed = store.ensureSeed();
   assert.equal(didSeed, true);
-  assert.equal(store.getBookings().length, 12);
+  assert.equal(store.getBookings().length, 17);
   assert.equal(localStorage.getItem(store.SEED_KEY), store.SEED_VERSION);
   assert.equal(store.ensureSeed(), false, "second call must not reseed");
 });
 
-ok("seed status totals are 6 confirmed / 4 pending / 2 cancelled", () => {
+ok("seed status totals are 9 confirmed / 6 pending / 2 cancelled", () => {
   const byStatus = { pending: 0, confirmed: 0, cancelled: 0 };
   for (const b of store.getBookings()) byStatus[b.status] += 1;
-  assert.deepEqual(byStatus, { pending: 4, confirmed: 6, cancelled: 2 });
+  assert.deepEqual(byStatus, { pending: 6, confirmed: 9, cancelled: 2 });
+});
+
+/* 1b. The partnership: both brands live in one store */
+ok("seed spans both brands and every service is branded", () => {
+  const byBrand = {};
+  for (const b of store.getBookings()) {
+    const k = store.brandOfBooking(b);
+    byBrand[k] = (byBrand[k] || 0) + 1;
+  }
+  assert.deepEqual(byBrand, { rink: 12, testify: 5 });
+  for (const svc of catalog.SERVICES) {
+    assert.ok(svc.brand === "rink" || svc.brand === "testify", svc.id + " must name a brand");
+  }
+  assert.equal(catalog.brandOf("testify-membership"), "testify");
+  assert.equal(catalog.brandOf("player-1on1"), "rink");
+});
+
+ok("memberships are recurring, and only live ones count toward MRR", () => {
+  const memberships = store.getBookings().filter(store.isMembership);
+  assert.equal(memberships.length, 3);
+  const mrr = memberships.reduce((sum, b) => sum + store.monthlyValue(b), 0);
+  assert.equal(mrr, 975, "460 gold + 170 bronze + 345 silver");
+
+  /* Assessment fee is what was charged; the monthly rate is not a deposit. */
+  for (const m of memberships) {
+    assert.equal(m.deposit.amount, catalog.MEMBERSHIP_ASSESSMENT_FEE);
+    assert.equal(m.schedule.termMonths, catalog.MEMBERSHIP_MIN_TERM_MONTHS);
+    assert.ok(m.schedule.tier && m.schedule.stream && m.schedule.startDate);
+  }
+
+  /* Cancelling stops the recurring revenue but keeps the record. */
+  const one = memberships.find((m) => m.status === "confirmed");
+  const before = store.monthlyValue(one);
+  assert.ok(before > 0);
+  store.updateStatus(one.ref, "cancelled");
+  assert.equal(store.monthlyValue(store.findBooking(one.ref)), 0);
+});
+
+ok("membership rates match testifyperformance.ca", () => {
+  assert.equal(catalog.monthlyRate("bronze", "athlete"), 230);
+  assert.equal(catalog.monthlyRate("bronze", "lifestyle"), 170);
+  assert.equal(catalog.monthlyRate("platinum", "athlete"), 550);
+  assert.equal(catalog.monthlyRate("platinum", "lifestyle"), 420);
+  assert.equal(catalog.MEMBERSHIP_ASSESSMENT_FEE, 99.99);
+  assert.equal(catalog.getTier("gold").sessions, 4);
+  assert.equal(catalog.monthlyRate("nope", "athlete"), null);
 });
 
 /* 2. Booking creation */
@@ -67,7 +113,7 @@ const newBooking = store.createBooking({
 ok("createBooking generates a valid, unique ref and stores it as pending", () => {
   assert.match(newBooking.ref, /^RNK-\d{5}$/);
   const all = store.getBookings();
-  assert.equal(all.length, 13);
+  assert.equal(all.length, 18);
   assert.equal(all.filter((b) => b.ref === newBooking.ref).length, 1);
   assert.equal(store.findBooking(newBooking.ref).status, "pending");
   assert.equal(newBooking.deposit.cardLast4, "4242");
@@ -156,7 +202,13 @@ ok("accounts are derived from bookings, so seeded customers already exist", () =
   assert.equal(a.profile.name, "Sarah Hartley");
   assert.equal(a.bookings.length >= 1, true);
   assert.equal(a.totalCredits, 6);
-  assert.equal(a.lifetimeSpend, 1690, "one 10-pack, no deposits");
+
+  /* The point of the merge: one account spans both brands. Sarah has RINK
+     1-on-1 credits and a Testify membership, and her lifetime figure is the
+     10-pack plus the membership assessment fee. */
+  const brands = new Set(a.bookings.map(store.brandOfBooking));
+  assert.deepEqual([...brands].sort(), ["rink", "testify"]);
+  assert.equal(a.lifetimeSpend, 1690 + catalog.MEMBERSHIP_ASSESSMENT_FEE);
 
   /* An account with bookings but no ledger is still a real account. */
   const deposits = accounts.accountFor("mike.reimer@outlook.com");

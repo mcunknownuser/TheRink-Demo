@@ -89,6 +89,42 @@
   --speed: 0.15s;            /* all transitions: 0.15s ease, colors/borders only */
 }
 
+/* ---- 2.2b Brand skin (DESIGN §2.4) ----
+ *
+ * RINK and Testify are one design system with a different accent: same Geom
+ * headings, same neutrals, red vs gold. Testify's own CSS does exactly this —
+ * it has a `.skin` class carrying #ad8400. Anything inside [data-brand="testify"]
+ * re-skins with no component changes, because every component already reads
+ * these tokens rather than literal colours.
+ *
+ * DEVIATION from DESIGN.md's five-colour rule: gold is a sixth hue. It is
+ * scoped to Testify surfaces and never appears on RINK ones. Recorded in
+ * docs/DESIGN.md §2.4 rather than left as a silent break.
+ */
+
+[data-brand="testify"] {
+  --red:      #ad8400;   /* Testify gold — their accent, in the red slot */
+  --black:    #101010;   /* their near-black, a touch deeper than RINK's */
+  --red-tint: rgba(173, 132, 0, 0.07);
+}
+
+/* The one place the token swap isn't enough: hover on a primary button goes to
+   the brand's black, which is already handled, but the darker gold is theirs
+   for pressed/hover accents. */
+[data-brand="testify"] .text-link:hover { color: #9c7700; }
+
+/* Brand tag — names which side of the partnership a thing belongs to. */
+.brand-tag {
+  display: inline-block;
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-tag);
+  text-transform: uppercase; letter-spacing: var(--ls-btn);
+  padding: 4px 8px; line-height: 1;
+  border: 1px solid currentColor;
+  color: var(--red);
+}
+.brand-tag--rink { color: var(--red); }
+.brand-tag--testify { color: #ad8400; }
+
 /* ---- 2.3 Base element rules ---- */
 
 *, *::before, *::after { box-sizing: border-box; border-radius: 0; }
@@ -891,6 +927,26 @@ fieldset.option-set legend {
 .ledger__delta { font-weight: 700; color: var(--ink-70); }
 .ledger__delta.is-positive { color: var(--blue); }
 
+/* ---- 5.21 Membership (Testify) ---- */
+
+.included { border: var(--border); border-left: var(--edge) solid var(--red); padding: var(--sp-4) var(--sp-5); margin-bottom: var(--sp-5); }
+.included h3 { font-size: var(--fs-cap); color: var(--ink-70); margin-bottom: var(--sp-3); }
+.included__list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 1fr; gap: var(--sp-2);
+  font-size: var(--fs-xs); color: var(--ink);
+}
+.included__list li::before { content: "— "; color: var(--red); }
+
+.confirm-block__brand {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-tag);
+  text-transform: uppercase; letter-spacing: var(--ls-kick);
+  color: var(--red); margin: 0 0 var(--sp-3);
+}
+.booking-card__brand { margin: 0 0 var(--sp-2); }
+
+.page-head { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
+
 /* =========================================================================
    Breakpoint: 640px+
    ========================================================================= */
@@ -926,6 +982,7 @@ fieldset.option-set legend {
 
   .confirm-page { padding: var(--sp-8) var(--sp-5); }
 
+  .included__list { grid-template-columns: repeat(2, 1fr); }
   .account-picker__row { grid-template-columns: 1.2fr 1.6fr auto; align-items: baseline; gap: var(--sp-4); }
   .account-picker__detail { text-align: right; }
   .credit-grid { grid-template-columns: repeat(2, 1fr); }

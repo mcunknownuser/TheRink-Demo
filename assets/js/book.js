@@ -24,7 +24,18 @@ import {
   packageTotal,
   packageSavings,
   ageGroupsFor,
-  CREDIT_TYPES
+  CREDIT_TYPES,
+  brandOf,
+  getBrand,
+  isMembershipService,
+  MEMBERSHIP_TIERS,
+  MEMBERSHIP_STREAMS,
+  MEMBERSHIP_INCLUDED,
+  MEMBERSHIP_ASSESSMENT_FEE,
+  MEMBERSHIP_MIN_TERM_MONTHS,
+  monthlyRate,
+  getTier,
+  streamLabel
 } from "./catalog.js";
 
 import {
@@ -49,7 +60,10 @@ const STEP_NAMES = ["Service", "Location", "Schedule", "Details", "Review & depo
 /* ---- Draft state ---- */
 
 function blankSchedule() {
-  return { date: null, startTime: null, iceOption: null, program: null, season: null, campWeek: null };
+  return {
+    date: null, startTime: null, iceOption: null, program: null, season: null, campWeek: null,
+    tier: null, stream: null, startDate: null
+  };
 }
 
 function blankDraft() {
@@ -127,6 +141,7 @@ function scheduleComplete() {
   }
   if (svc.type === "seasonal") return Boolean(s.program && s.season);
   if (svc.type === "camp") return Boolean(s.campWeek);
+  if (svc.type === "membership") return Boolean(s.tier && s.stream && s.startDate);
   return false;
 }
 
@@ -262,9 +277,10 @@ function renderStep1() {
   }
   html += groupError("service");
   const groups = [
-    ["Sessions & ice", servicesInGroup("sessions")],
-    ["Programs", servicesInGroup("programs")],
-    ["Camps", servicesInGroup("camps")]
+    ["RINK — Sessions & ice", servicesInGroup("sessions")],
+    ["RINK — Programs", servicesInGroup("programs")],
+    ["RINK — Camps", servicesInGroup("camps")],
+    ["Testify Performance — Off-ice training", servicesInGroup("training")]
   ];
   html += '<fieldset class="option-set"><legend class="visually-hidden">Service</legend>';
   for (const [label, services] of groups) {
@@ -357,6 +373,7 @@ function renderStep3() {
   const svc = getService(draft.serviceId);
   if (svc.type === "hourly") renderStep3Hourly(svc);
   else if (svc.type === "seasonal") renderStep3Seasonal(svc);
+  else if (svc.type === "membership") renderStep3Membership();
   else renderStep3Camp();
 }
 
@@ -529,6 +546,90 @@ function renderStep3Camp() {
   });
 }
 
+/*
+ * Membership scheduling isn't a date — it's a commitment: which tier, which
+ * stream, and when it starts. The monthly rate is the product of the first two,
+ * so the tier list re-renders when the stream changes.
+ */
+function renderStep3Membership() {
+  const s = draft.schedule;
+  let html = panelHead(
+    "Choose your membership",
+    "Pick a stream and a tier. Membership runs month to month after a " +
+      MEMBERSHIP_MIN_TERM_MONTHS + "-month minimum, and starts with a paid assessment."
+  );
+
+  html += '<fieldset class="option-set"><legend>Stream</legend>';
+  html += groupError("stream");
+  html += '<ul class="option-list">';
+  for (const st of MEMBERSHIP_STREAMS) {
+    html += "<li>" + optionRow(st.label, st.id, s.stream === st.id, { group: "stream", sub: st.desc }) + "</li>";
+  }
+  html += "</ul></fieldset>";
+
+  html += '<fieldset class="option-set"><legend>Tier</legend>';
+  html += groupError("tier");
+  if (!s.stream) {
+    html += '<p class="option-note">Choose a stream first — it sets the monthly rate.</p>';
+  } else {
+    html += '<ul class="option-list">';
+    for (const t of MEMBERSHIP_TIERS) {
+      const rate = monthlyRate(t.id, s.stream);
+      const perks = t.perks.length ? " · " + t.perks.join(", ") : "";
+      html +=
+        "<li>" +
+        optionRow(t.label, t.id, s.tier === t.id, {
+          group: "tier",
+          sub: t.sessions + " sessions per week" + perks,
+          price: formatMoney(rate) + "/mo"
+        }) +
+        "</li>";
+    }
+    html += "</ul>";
+  }
+  html += "</fieldset>";
+
+  html +=
+    '<div class="' + fieldClass("startDate") + '">' +
+    '<label class="field__label" for="startInput">Start date</label>' +
+    '<input class="input input--date" type="date" id="startInput" min="' + todayISO() +
+    '" value="' + esc(s.startDate || "") + '"' + ariaErr("startDate") + ">" +
+    fieldError("startDate") +
+    '<span class="field__help">Your assessment is booked from here; billing starts after it.</span>' +
+    "</div>";
+
+  html += '<div class="included"><h3>Included at every tier</h3><ul class="included__list">';
+  for (const item of MEMBERSHIP_INCLUDED) html += "<li>" + esc(item) + "</li>";
+  html += "</ul></div>";
+
+  html += controlsRow();
+  panel.innerHTML = html;
+
+  panel.querySelectorAll('input[name="stream"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      draft.schedule.stream = input.value;
+      delete pendingErrors.stream;
+      saveDraft();
+      render(false); // rates depend on stream, so the tier list must repaint
+    });
+  });
+  panel.querySelectorAll('input[name="tier"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      draft.schedule.tier = input.value;
+      delete pendingErrors.tier;
+      saveDraft();
+      updateRail();
+    });
+  });
+  const start = panel.querySelector("#startInput");
+  start.addEventListener("change", () => {
+    draft.schedule.startDate = start.value || null;
+    delete pendingErrors.startDate;
+    saveDraft();
+    updateRail();
+  });
+}
+
 function renderStep4() {
   const svc = getService(draft.serviceId);
   const d = draft.details;
@@ -675,6 +776,7 @@ function recapGroup(title, gotoStep, rowsHtml) {
  */
 function checkoutMode() {
   const svc = getService(draft.serviceId);
+  if (svc && isMembershipService(svc.id)) return "membership";
   if (!svc || !isCreditService(svc.id)) return "deposit";
   const email = normalizeEmail(draft.details.email);
   if (!email) return "purchase";
@@ -685,6 +787,28 @@ function selectedPackage() {
   const svc = getService(draft.serviceId);
   if (!svc) return null;
   return draft.packageId ? findPackage(svc.id, draft.packageId) : null;
+}
+
+function membershipPayHtml() {
+  const s = draft.schedule;
+  const tier = getTier(s.tier);
+  const rate = monthlyRate(s.tier, s.stream);
+  let html = "<h3>Membership</h3>";
+  html +=
+    '<div class="credit-pay">' +
+    '<div class="credit-pay__row"><span>' + esc(tier.label) + " · " + esc(streamLabel(s.stream)) + "</span>" +
+    '<span class="credit-pay__num">' + esc(formatMoney(rate)) + "/mo</span></div>" +
+    '<div class="credit-pay__row"><span>Sessions per week</span><span>' + tier.sessions + "</span></div>" +
+    '<div class="credit-pay__row"><span>Minimum term</span><span>' + MEMBERSHIP_MIN_TERM_MONTHS + " months</span></div>" +
+    '<div class="credit-pay__row"><span>Starts</span><span>' + esc(formatDate(s.startDate)) + "</span></div>" +
+    '<div class="credit-pay__row credit-pay__row--total"><span>Due today (assessment)</span>' +
+    '<span class="credit-pay__num">' + esc(formatMoney(MEMBERSHIP_ASSESSMENT_FEE)) + "</span></div>" +
+    "</div>";
+  html +=
+    '<p class="fine-print">Only the assessment is charged today. Monthly billing of ' +
+    esc(formatMoneyCAD(rate)) + " begins after your assessment and runs for a " +
+    MEMBERSHIP_MIN_TERM_MONTHS + "-month minimum.</p>";
+  return html;
 }
 
 function creditPayHtml(svc) {
@@ -775,6 +899,7 @@ function renderStep5() {
   const isRental = svc.id === "ice-rental";
 
   const heading = mode === "redeem" ? "Review & confirm" : "Review & pay";
+  const isMembership = mode === "membership";
   const intro =
     mode === "redeem"
       ? "Check everything over, then confirm. This booking uses one of your session credits."
@@ -799,6 +924,11 @@ function renderStep5() {
   } else if (svc.type === "seasonal") {
     schedRows += recapRow("Program", s.program);
     schedRows += recapRow("Season", s.season);
+  } else if (svc.type === "membership") {
+    schedRows += recapRow("Tier", getTier(s.tier).label + " · " + streamLabel(s.stream));
+    schedRows += recapRow("Sessions", getTier(s.tier).sessions + " per week");
+    schedRows += recapRow("Monthly", formatMoneyCAD(monthlyRate(s.tier, s.stream)));
+    schedRows += recapRow("Starts", formatDate(s.startDate));
   } else {
     schedRows += recapRow("Camp week", s.campWeek);
   }
@@ -824,7 +954,15 @@ function renderStep5() {
   html += "</div>";
 
   let payLabel;
-  if (mode === "redeem") {
+  if (mode === "membership") {
+    html += membershipPayHtml();
+    html +=
+      '<div class="checkout__amount"><span class="checkout__amount-label">Due today</span>' +
+      '<span class="checkout__amount-value">' + formatMoneyCAD(MEMBERSHIP_ASSESSMENT_FEE) + "</span></div>";
+    html += DEMO_NOTICE_HTML;
+    html += cardFieldsHtml();
+    payLabel = "Pay " + formatMoney(MEMBERSHIP_ASSESSMENT_FEE) + " assessment";
+  } else if (mode === "redeem") {
     html += creditPayHtml(svc);
     payLabel = "Confirm booking";
   } else if (mode === "purchase") {
@@ -859,6 +997,8 @@ function renderStep5() {
     "</div>";
   if (mode === "deposit") {
     html += '<p class="fine-print">Deposits are held against your booking and refunded if the front desk cancels it. This is a demo transaction.</p>';
+  } else if (mode === "membership") {
+    html += '<p class="fine-print">Membership continues month to month after the minimum term. Cancel or change tier through the front desk. This is a demo transaction.</p>';
   } else if (mode === "purchase") {
     html += '<p class="fine-print">Packages are non-transferable. Cancel a session more than 24 hours ahead and the credit returns to your account. This is a demo transaction.</p>';
   }
@@ -929,6 +1069,11 @@ function validateSchedule(svc) {
   } else if (svc.type === "camp") {
     const week = campWeeksAt(draft.locationId).find((w) => w.label === s.campWeek);
     if (!week || week.monday < todayISO()) pendingErrors.campWeek = "Select an upcoming camp week.";
+  } else if (svc.type === "membership") {
+    if (!s.stream) pendingErrors.stream = "Choose a stream.";
+    if (!s.tier) pendingErrors.tier = "Choose a membership tier.";
+    if (!s.startDate) pendingErrors.startDate = "Pick a start date.";
+    else if (s.startDate < todayISO()) pendingErrors.startDate = "That date has passed. Pick a start date from today onward.";
   }
 }
 
@@ -1054,6 +1199,7 @@ function handlePayment() {
     serviceId: svc.id,
     serviceName: svc.name,
     serviceType: svc.type,
+    brand: brandOf(svc.id),
     locationId: loc.id,
     locationName: loc.full,
     schedule: {
@@ -1063,7 +1209,12 @@ function handlePayment() {
       iceOption: isRental ? s.iceOption : null,
       program: svc.type === "seasonal" ? s.program : null,
       season: svc.type === "seasonal" ? s.season : null,
-      campWeek: svc.type === "camp" ? s.campWeek : null
+      campWeek: svc.type === "camp" ? s.campWeek : null,
+      tier: svc.type === "membership" ? s.tier : null,
+      stream: svc.type === "membership" ? s.stream : null,
+      startDate: svc.type === "membership" ? s.startDate : null,
+      termMonths: svc.type === "membership" ? MEMBERSHIP_MIN_TERM_MONTHS : null,
+      monthlyRate: svc.type === "membership" ? monthlyRate(s.tier, s.stream) : null
     },
     participant: {
       name: isRental ? null : d.participantName.trim(),
@@ -1078,7 +1229,7 @@ function handlePayment() {
       phone: d.phone.trim()
     },
     deposit: {
-      amount: creditType ? 0 : currentDeposit(),
+      amount: creditType ? 0 : mode === "membership" ? MEMBERSHIP_ASSESSMENT_FEE : currentDeposit(),
       cardLast4: needsCard ? digits.slice(-4) : null
     },
     payment: creditType
@@ -1161,6 +1312,12 @@ function updateRail() {
     }
     return;
   }
+  if (svc && isMembershipService(svc.id)) {
+    const rate = monthlyRate(draft.schedule.tier, draft.schedule.stream);
+    if (railTotal) railTotal.textContent = "Monthly";
+    rail.deposit.textContent = rate == null ? "" : formatMoney(rate) + "/mo";
+    return;
+  }
   if (railTotal) railTotal.textContent = "Deposit";
   const amount = currentDeposit();
   rail.deposit.textContent = amount == null ? "" : formatMoney(amount);
@@ -1168,8 +1325,23 @@ function updateRail() {
 
 /* ---- Orchestration ---- */
 
+/* The wizard wears the brand of whatever is being booked, so a Testify
+   membership is unmistakably Testify from step 1 to the confirmation. */
+function applyBrandSkin() {
+  const svc = getService(draft.serviceId);
+  const brand = svc ? brandOf(svc.id) : "rink";
+  document.body.setAttribute("data-brand", brand);
+  const label = document.getElementById("wizardBrand");
+  if (label) {
+    const b = getBrand(brand);
+    label.textContent = b.name;
+    label.className = "brand-tag brand-tag--" + brand;
+  }
+}
+
 function render(moveFocus = true) {
   showServiceChangeNoticeCleanup();
+  applyBrandSkin();
   const renderers = [renderStep1, renderStep2, renderStep3, renderStep4, renderStep5];
   renderers[draft.step - 1]();
   updateStepsUI();

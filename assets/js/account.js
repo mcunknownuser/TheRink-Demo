@@ -16,7 +16,8 @@ import {
   findPackage,
   packageTotal,
   packageSavings,
-  getService
+  getService,
+  getBrand
 } from "./catalog.js";
 
 import {
@@ -25,7 +26,8 @@ import {
   formatMoney,
   formatMoneyCAD,
   formatScheduleLine,
-  paymentLine
+  paymentLine,
+  brandOfBooking
 } from "./store.js";
 
 import {
@@ -216,6 +218,8 @@ function bookingCard(b) {
   html += '<h3>' + esc(b.serviceName) + "</h3>";
   html += badge(b.status);
   html += "</div>";
+  html += '<p class="booking-card__brand"><span class="brand-tag brand-tag--' + esc(brandOfBooking(b)) +
+    '">' + esc(getBrand(brandOfBooking(b)).name) + "</span></p>";
   html += '<p class="booking-card__schedule">' + esc(formatScheduleLine(b)) + "</p>";
   html += '<p class="booking-card__meta">' + esc(b.locationName) + "</p>";
   html +=

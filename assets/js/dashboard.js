@@ -5,7 +5,18 @@
  * filtered rows, and a two-step "Reset demo data" control. No auth by design.
  */
 
-import { bookableServices, LOCATIONS, getLocation, scheduleSortValue, CREDIT_TYPES } from "./catalog.js";
+import {
+  bookableServices,
+  LOCATIONS,
+  getLocation,
+  scheduleSortValue,
+  CREDIT_TYPES,
+  BRANDS,
+  getBrand,
+  getTier,
+  streamLabel,
+  MEMBERSHIP_MIN_TERM_MONTHS
+} from "./catalog.js";
 import {
   ensureSeed,
   resetDemoData,
@@ -21,6 +32,9 @@ import {
   paymentLine,
   isCreditPaid,
   bookingAmount,
+  isMembership,
+  brandOfBooking,
+  monthlyValue,
   bookingsToCsv
 } from "./store.js";
 import {
@@ -54,6 +68,11 @@ const els = {
   body: document.getElementById("bookingsBody"),
   empty: document.getElementById("emptyState"),
   tabs: document.querySelectorAll(".dash-tab"),
+  filterBrand: document.getElementById("filterBrand"),
+  membershipsWrap: document.getElementById("membershipsWrap"),
+  membershipsTable: document.getElementById("membershipsTable"),
+  membershipsBody: document.getElementById("membershipsBody"),
+  membershipsEmpty: document.getElementById("membershipsEmpty"),
   filters: document.querySelector(".filters"),
   tableWrap: document.querySelector(".table-wrap"),
   accountsWrap: document.getElementById("accountsWrap"),
@@ -98,6 +117,12 @@ function esc(value) {
     .replace(/'/g, "&#39;");
 }
 
+function brandTag(brandId) {
+  return (
+    '<span class="brand-tag brand-tag--' + esc(brandId) + '">' + esc(getBrand(brandId).name) + "</span>"
+  );
+}
+
 function badgeHtml(status) {
   return '<span class="badge badge--' + esc(status) + '">' + esc(STATUS_LABELS[status] || status) + "</span>";
 }
@@ -121,7 +146,11 @@ for (const loc of LOCATIONS) {
 
 function filtersActive() {
   return Boolean(
-    els.filterService.value || els.filterLocation.value || els.filterStatus.value || els.search.value.trim()
+    els.filterBrand.value ||
+      els.filterService.value ||
+      els.filterLocation.value ||
+      els.filterStatus.value ||
+      els.search.value.trim()
   );
 }
 
@@ -130,7 +159,9 @@ function filteredBookings() {
   const location = els.filterLocation.value;
   const status = els.filterStatus.value;
   const query = els.search.value.trim().toLowerCase();
+  const brand = els.filterBrand.value;
   return getBookings().filter((b) => {
+    if (brand && brandOfBooking(b) !== brand) return false;
     if (service && b.serviceId !== service) return false;
     if (location && b.locationId !== location) return false;
     if (status && b.status !== status) return false;
@@ -251,6 +282,7 @@ function scopeFacts(scope, rows) {
       ["From card deposits", paidByCard.length + (paidByCard.length === 1 ? " booking" : " bookings")],
       ["Average deposit", paidByCard.length ? formatMoneyCAD(avg) : "—"],
       ["Credit-paid (adds $0)", String(paidByCredit.length)],
+      ["Monthly recurring", formatMoneyCAD(rows.reduce((sum, b) => sum + monthlyValue(b), 0))],
       ["Held against pending", formatMoneyCAD(rows.filter((b) => b.status === "pending").reduce((s, b) => s + bookingAmount(b), 0))],
       ["By location", byLocation()]
     ];
@@ -276,6 +308,7 @@ function scopeFacts(scope, rows) {
     ["Confirmed", String(byStatus("confirmed"))],
     ["Awaiting confirmation", String(byStatus("pending"))],
     ["Upcoming sessions", String(upcoming)],
+    ["Memberships", String(rows.filter(isMembership).length)],
     ["Seasonal or camp", String(rows.length - dated.length)],
     ["By location", byLocation()]
   ];
@@ -333,6 +366,7 @@ function renderTable() {
         '<tr data-ref="' + esc(b.ref) + '"' + (cls ? ' class="' + cls + '"' : "") + ' tabindex="0">' +
         '<td class="ref">' + esc(b.ref) + "</td>" +
         "<td>" + esc(formatDateTime(b.createdAt)) + "</td>" +
+        "<td>" + brandTag(brandOfBooking(b)) + "</td>" +
         "<td>" + esc(b.serviceName) + "</td>" +
         "<td>" + esc(loc ? loc.name : b.locationName) + "</td>" +
         "<td>" + esc(formatScheduleLine(b)) + "</td>" +
@@ -346,6 +380,88 @@ function renderTable() {
     .join("");
 
   els.body.querySelectorAll("tr").forEach((tr) => {
+    tr.addEventListener("click", () => openPanel(tr.dataset.ref));
+    tr.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openPanel(tr.dataset.ref);
+      }
+    });
+  });
+}
+
+/* ---- Memberships view ---- */
+
+/*
+ * Memberships are the one thing the manager cannot read off the bookings table:
+ * what matters is the recurring commitment, not the assessment fee that was
+ * charged. This view leads with monthly recurring revenue and lists the members
+ * behind it.
+ */
+function membershipRows() {
+  const brand = els.filterBrand.value;
+  const status = els.filterStatus.value;
+  const query = els.search.value.trim().toLowerCase();
+  return getBookings()
+    .filter(isMembership)
+    .filter((b) => !brand || brandOfBooking(b) === brand)
+    .filter((b) => !status || b.status === status)
+    .filter((b) => {
+      if (!query) return true;
+      return [b.ref, b.contact.name, b.participant.name || ""].join(" ").toLowerCase().includes(query);
+    })
+    .sort((a, b) => (a.schedule.startDate < b.schedule.startDate ? 1 : -1));
+}
+
+function renderMembershipsTable() {
+  const all = getBookings().filter(isMembership);
+  const rows = membershipRows();
+  const mrr = rows.reduce((sum, b) => sum + monthlyValue(b), 0);
+  const live = rows.filter((b) => b.status !== "cancelled").length;
+
+  els.count.textContent =
+    "Showing " + rows.length + " of " + all.length + " memberships · " +
+    formatMoneyCAD(mrr) + "/mo from " + live + " active";
+  els.clearFilters.hidden = !filtersActive();
+
+  if (rows.length === 0) {
+    els.membershipsTable.hidden = true;
+    els.membershipsEmpty.hidden = false;
+    els.membershipsEmpty.innerHTML =
+      "<h3>No memberships match your filters.</h3>" +
+      '<button type="button" class="btn btn--secondary btn--small" id="msClearBtn">Clear filters</button>';
+    els.membershipsEmpty.querySelector("#msClearBtn").addEventListener("click", clearAllFilters);
+    return;
+  }
+
+  els.membershipsTable.hidden = false;
+  els.membershipsEmpty.hidden = true;
+  els.membershipsEmpty.innerHTML = "";
+
+  els.membershipsBody.innerHTML = rows
+    .map((b) => {
+      const tier = getTier(b.schedule.tier);
+      const loc = getLocation(b.locationId);
+      const cls = [b.status === "cancelled" ? "is-cancelled" : "", b.ref === openRef ? "is-open" : ""]
+        .filter(Boolean)
+        .join(" ");
+      return (
+        '<tr data-ref="' + esc(b.ref) + '"' + (cls ? ' class="' + cls + '"' : "") + ' tabindex="0">' +
+        '<td class="ref">' + esc(b.ref) + "</td>" +
+        "<td>" + esc(participantLabel(b) || b.contact.name) + "</td>" +
+        "<td>" + esc(tier ? tier.label : b.schedule.tier) +
+        (tier ? ' <span class="ledger__note">' + tier.sessions + "×/wk</span>" : "") + "</td>" +
+        "<td>" + esc(streamLabel(b.schedule.stream)) + "</td>" +
+        '<td class="num">' + esc(formatMoney(monthlyValue(b))) + "</td>" +
+        "<td>" + esc(b.schedule.startDate ? formatDate(b.schedule.startDate) : "—") + "</td>" +
+        "<td>" + esc(loc ? loc.name : b.locationName) + "</td>" +
+        "<td>" + badgeHtml(b.status) + "</td>" +
+        "</tr>"
+      );
+    })
+    .join("");
+
+  els.membershipsBody.querySelectorAll("tr").forEach((tr) => {
     tr.addEventListener("click", () => openPanel(tr.dataset.ref));
     tr.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -435,8 +551,10 @@ function setView(next) {
   /* The service/location/status selects and CSV export are booking concepts;
      search is shared, so only its placeholder changes. */
   els.filters.classList.toggle("filters--accounts", view === "accounts");
+  els.filters.classList.toggle("filters--memberships", view === "memberships");
   els.search.placeholder = view === "accounts" ? "Name or email" : "Ref, contact, or participant";
   els.tableWrap.hidden = view !== "bookings";
+  els.membershipsWrap.hidden = view !== "memberships";
   els.accountsWrap.hidden = view !== "accounts";
   if (!els.panel.hidden) closePanel();
   refresh();
@@ -486,12 +604,22 @@ function renderPanel() {
   els.panelRef.textContent = b.ref;
   els.panelBadge.className = "badge badge--" + b.status;
   els.panelBadge.textContent = STATUS_LABELS[b.status];
+  /* Panel wears the brand of the booking it shows. */
+  els.panel.setAttribute("data-brand", brandOfBooking(b));
 
   const s = b.schedule;
   let schedRows = "";
+  schedRows += panelRow("Brand", brandTag(brandOfBooking(b)));
   schedRows += panelRow("Service", esc(b.serviceName));
   schedRows += panelRow("Location", esc(b.locationName));
-  if (b.serviceType === "hourly") {
+  if (b.serviceType === "membership") {
+    const tier = getTier(s.tier);
+    schedRows += panelRow("Tier", esc((tier ? tier.label : s.tier) + " · " + streamLabel(s.stream)));
+    if (tier) schedRows += panelRow("Sessions", esc(tier.sessions + " per week"));
+    schedRows += panelRow("Monthly", esc(formatMoneyCAD(monthlyValue(b))));
+    schedRows += panelRow("Minimum term", esc((s.termMonths || MEMBERSHIP_MIN_TERM_MONTHS) + " months"));
+    schedRows += panelRow("Starts", esc(s.startDate ? formatDate(s.startDate) : "—"));
+  } else if (b.serviceType === "hourly") {
     schedRows += panelRow("Date", esc(formatDate(s.date)));
     schedRows += panelRow("Time", esc(s.startTime + "–" + s.endTime));
     if (s.iceOption) schedRows += panelRow("Ice option", esc(s.iceOption === "full" ? "Full ice" : "Half ice"));
@@ -559,6 +687,11 @@ function renderPanelActions(b) {
     /* Spell out the credit consequence before the click, not after — the
        24-hour rule is the thing a manager gets asked to override. */
     let consequence = "Cancelled bookings can't be reactivated, and the deposit is excluded from totals.";
+    if (isMembership(b)) {
+      consequence =
+        "Cancelling ends the membership. " + formatMoneyCAD(monthlyValue(b)) +
+        " per month stops counting toward recurring revenue, and the record stays for history.";
+    }
     if (isCreditPaid(b)) {
       const start = bookingStart(b);
       const outside = !start || hoursUntil(start) >= CANCELLATION_NOTICE_HOURS;
@@ -736,6 +869,7 @@ function renderAccountActions(account) {
 }
 
 function openAccountPanel(email) {
+  els.panel.setAttribute("data-brand", "rink");
   openRef = null;
   openEmail = email;
   openStat = null;
@@ -799,6 +933,7 @@ function renderStatPanel() {
 }
 
 function openStatPanel(key) {
+  els.panel.setAttribute("data-brand", "rink");
   openRef = null;
   openEmail = null;
   openStat = key;
@@ -848,11 +983,13 @@ function closePanel() {
   let row = null;
   if (view === "bookings" && refToFocus) {
     row = els.body.querySelector('tr[data-ref="' + CSS.escape(refToFocus) + '"]');
+  } else if (view === "memberships" && refToFocus) {
+    row = els.membershipsBody.querySelector('tr[data-ref="' + CSS.escape(refToFocus) + '"]');
   } else if (view === "accounts" && emailToFocus) {
     row = els.accountsBody.querySelector('tr[data-email="' + CSS.escape(emailToFocus) + '"]');
   }
   if (row) row.focus();
-  else (view === "accounts" ? els.accountsTable : els.table).focus();
+  else (view === "accounts" ? els.accountsTable : view === "memberships" ? els.membershipsTable : els.table).focus();
 }
 
 els.panelClose.addEventListener("click", closePanel);
@@ -864,6 +1001,7 @@ document.addEventListener("keydown", (e) => {
 /* ---- Filters wiring ---- */
 
 function clearAllFilters() {
+  els.filterBrand.value = "";
   els.filterService.value = "";
   els.filterLocation.value = "";
   els.filterStatus.value = "";
@@ -883,7 +1021,7 @@ els.stats.forEach((btn) => {
   });
 });
 
-[els.filterService, els.filterLocation, els.filterStatus].forEach((sel) =>
+[els.filterBrand, els.filterService, els.filterLocation, els.filterStatus].forEach((sel) =>
   sel.addEventListener("change", renderCurrentTable)
 );
 /* Search is shared by both views; the selects only apply to bookings. */
@@ -928,6 +1066,7 @@ els.resetConfirm.addEventListener("click", () => {
 
 function renderCurrentTable() {
   if (view === "accounts") renderAccountsTable();
+  else if (view === "memberships") renderMembershipsTable();
   else renderTable();
 }
 

@@ -4,9 +4,9 @@
  * read-only recap. Never mutates data; shows a not-found state for bad refs.
  */
 
-import { ensureSeed, findBooking, formatDate, formatMoneyCAD, isCreditPaid } from "./store.js";
+import { ensureSeed, findBooking, formatDate, formatMoneyCAD, isCreditPaid, isMembership, brandOfBooking } from "./store.js";
 import { balanceOf } from "./accounts.js";
-import { CREDIT_TYPES, getLocation } from "./catalog.js";
+import { CREDIT_TYPES, getLocation, getBrand, getTier, streamLabel } from "./catalog.js";
 
 ensureSeed();
 
@@ -58,10 +58,14 @@ function renderNotFound() {
 function renderBooking(b) {
   const s = b.schedule;
   const isRental = b.serviceId === "ice-rental";
+  /* The confirmation wears the brand that was booked. */
+  const brand = brandOfBooking(b);
+  document.body.setAttribute("data-brand", brand);
 
   let html = '<section class="confirm-block on-dark">';
   html += ICON_CHECK;
   html += '<h1 class="confirm-block__kicker">Booking received</h1>';
+  html += '<p class="confirm-block__brand">' + esc(getBrand(brand).name) + "</p>";
   html += '<p class="confirm-block__label">Your booking reference</p>';
   html += '<p class="confirm-block__ref">' + esc(b.ref) + "</p>";
   html += badgeFor(b.status);
@@ -80,6 +84,13 @@ function renderBooking(b) {
   } else if (b.serviceType === "seasonal") {
     schedRows += row("Program", s.program);
     schedRows += row("Season", s.season);
+  } else if (isMembership(b)) {
+    const tier = getTier(s.tier);
+    schedRows += row("Tier", (tier ? tier.label : s.tier) + " · " + streamLabel(s.stream));
+    if (tier) schedRows += row("Sessions", tier.sessions + " per week");
+    schedRows += row("Monthly", formatMoneyCAD(s.monthlyRate));
+    schedRows += row("Minimum term", s.termMonths + " months");
+    schedRows += row("Starts", formatDate(s.startDate));
   } else {
     schedRows += row("Camp week", s.campWeek);
   }
@@ -123,6 +134,12 @@ function renderBooking(b) {
       "Payment",
       row("Paid with", "1 " + short + " session credit") +
         row("Credits remaining", String(remaining))
+    );
+  } else if (isMembership(b)) {
+    html += group(
+      "Payment",
+      row("Paid today", formatMoneyCAD(b.deposit.amount) + " assessment · card ending " + b.deposit.cardLast4) +
+        row("Then monthly", formatMoneyCAD(s.monthlyRate))
     );
   } else {
     html += group(
