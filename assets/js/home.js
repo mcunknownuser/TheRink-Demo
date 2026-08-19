@@ -40,10 +40,15 @@ const VIEWS = {
 const switchEl = document.getElementById("brandSwitch");
 const introEl = document.getElementById("servicesIntro");
 const liveEl = document.getElementById("brandSwitchStatus");
+/* Section ids must NOT equal the hash values below. If they matched, setting
+   the hash would make the browser jump-scroll to the section, and because
+   filtering also collapses the page the scroll would land past the new end of
+   the content — dumping the viewer at the footer. */
 const sections = {
   rink: document.getElementById("services"),
-  testify: document.getElementById("testify")
+  testify: document.getElementById("services-testify")
 };
+const switchBand = document.querySelector(".band--switch");
 
 /* Card counts come from the catalog rather than being written into the copy,
    so the summary can't drift when a service is added. */
@@ -56,7 +61,21 @@ function viewFromHash() {
   return Object.prototype.hasOwnProperty.call(VIEWS, raw) ? raw : "all";
 }
 
-function apply(view) {
+/*
+ * Filtering removes whole sections, so the page height changes underneath the
+ * viewer. Put them back at the switch afterwards rather than leaving them
+ * wherever the old layout happened to place them.
+ */
+function scrollToSwitch() {
+  const anchor = switchBand || switchEl;
+  if (!anchor) return;
+  const header = document.querySelector(".site-header");
+  const offset = (header ? header.offsetHeight : 0) + 16;
+  const top = anchor.getBoundingClientRect().top + window.pageYOffset - offset;
+  window.scrollTo(0, Math.max(0, top));
+}
+
+function apply(view, { scroll = false } = {}) {
   for (const [brand, section] of Object.entries(sections)) {
     section.hidden = view !== "all" && view !== brand;
   }
@@ -71,6 +90,8 @@ function apply(view) {
     view === "all" ? countFor("rink") + countFor("testify") : countFor(view);
   liveEl.textContent =
     "Showing " + shown + " services — " + VIEWS[view].label + ".";
+
+  if (scroll) scrollToSwitch();
 }
 
 switchEl.addEventListener("change", (e) => {
@@ -84,7 +105,7 @@ switchEl.addEventListener("change", (e) => {
     } catch {
       window.location.hash = "";
     }
-    apply("all");
+    apply("all", { scroll: true });
   } else {
     window.location.hash = value;
   }
@@ -106,7 +127,7 @@ const onRouteChange = () => {
   /* Guard against a stale handler firing after the page has been swapped out
      from under it in the artifact build. */
   if (!document.body.contains(switchEl)) return;
-  apply(viewFromHash());
+  apply(viewFromHash(), { scroll: true });
 };
 window[HANDLER_KEY] = onRouteChange;
 window.addEventListener("hashchange", onRouteChange);
