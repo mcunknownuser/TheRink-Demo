@@ -1,0 +1,23 @@
+# Nothing here belongs on a public URL.
+
+# Internal working material. REVIEW.md is an adversarial critique of the build
+# and CLAUDE.md records which prices are placeholders — neither is for a
+# prospect who opens /docs/REVIEW.md out of curiosity.
+docs/
+CLAUDE.md
+README.md
+
+# Local-only tooling
+serve.py
+tools/
+test/
+
+# Build output: the deployed site is the real multi-page app, not the
+# single-file artifact bundle.
+dist/
+
+# Present only to mark the JS as ES modules for Node. Shipping it makes Vercel
+# treat this as a Node project and look for a build step that doesn't exist.
+package.json
+
+.DS_Store

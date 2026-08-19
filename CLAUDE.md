@@ -115,6 +115,32 @@ policy, derived accounts, brand coverage, membership rates and MRR, and
 ice sheets, and malformed-input handling for both stores. Uses
 localStorage/sessionStorage stubs; no browser required.
 
+## Deploying (Vercel)
+
+Static site, no build step. `vercel.json` sets three things, each for a reason
+that isn't obvious from the file:
+
+- **HTML/JS/CSS revalidate on every request.** The site is ES modules that
+  import each other. A browser holding one cached module beside a fresh one
+  hits an unresolved import, and an ES module import failure means the module
+  never executes — the page renders blank with nothing in the console. This is
+  the same failure that `serve.py` prevents locally.
+- **Fonts and images cache for a year**, since they never change without a
+  filename change.
+- **`X-Robots-Tag: noindex`**, backed by `robots.txt`. The demo carries RINK's
+  branding, real addresses and phone numbers; it must not be indexed and
+  mistaken for their live site.
+
+`.vercelignore` keeps `docs/`, `CLAUDE.md`, `test/`, `tools/` and `serve.py`
+off the public URL — `docs/REVIEW.md` is an adversarial critique of the build,
+and this file records which prices are placeholders. It also excludes
+`package.json`, which exists only to mark the JS as ES modules for Node; ship
+it and Vercel treats the repo as a Node project and looks for a build step
+that doesn't exist.
+
+**Vercel deploys the repo's production branch.** Make sure that branch is the
+one carrying this work, or the deployed site will be an older build.
+
 ## Docs index
 
 - `docs/BRIEF.md` — constraints, brand facts, services catalog.

@@ -1,0 +1,5 @@
+# This is a demonstration booking platform, not RINK's live site.
+# It carries their branding and real contact details, so it must not be
+# indexed and mistaken for the real thing.
+User-agent: *
+Disallow: /
