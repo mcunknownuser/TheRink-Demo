@@ -165,6 +165,11 @@ function detailsComplete() {
 const panel = document.getElementById("stepPanel");
 const stepsList = document.getElementById("steps");
 const currentLabel = document.getElementById("stepsCurrentLabel");
+const sticky = {
+  bar: document.getElementById("stepSticky"),
+  label: document.getElementById("stepStickyLabel"),
+  btn: document.getElementById("stepStickyBtn")
+};
 const rail = {
   service: document.getElementById("railService"),
   location: document.getElementById("railLocation"),
@@ -328,7 +333,9 @@ function renderStep1() {
       draft.serviceId = newId;
       pendingErrors = {};
       saveDraft();
+      applyBrandSkin(); // the page wears the brand as soon as it is chosen
       updateRail();
+      refreshSticky();
     });
   });
 }
@@ -374,6 +381,7 @@ function renderStep2() {
       pendingErrors = {};
       saveDraft();
       updateRail();
+      refreshSticky();
     });
   });
 }
@@ -483,6 +491,7 @@ function renderStep3Hourly(svc) {
       delete pendingErrors.startTime;
       saveDraft();
       updateRail();
+      refreshSticky();
       panel.querySelectorAll(".slot").forEach((b) => {
         b.classList.toggle("is-selected", b === btn);
         b.setAttribute("aria-pressed", b === btn ? "true" : "false");
@@ -520,6 +529,7 @@ function renderStep3Seasonal(svc) {
       delete pendingErrors.program;
       saveDraft();
       updateRail();
+      refreshSticky();
     });
   });
   panel.querySelectorAll('input[name="season"]').forEach((input) => {
@@ -528,6 +538,7 @@ function renderStep3Seasonal(svc) {
       delete pendingErrors.season;
       saveDraft();
       updateRail();
+      refreshSticky();
     });
   });
 }
@@ -561,6 +572,7 @@ function renderStep3Camp() {
       delete pendingErrors.campWeek;
       saveDraft();
       updateRail();
+      refreshSticky();
     });
   });
 }
@@ -638,6 +650,7 @@ function renderStep3Membership() {
       delete pendingErrors.tier;
       saveDraft();
       updateRail();
+      refreshSticky();
     });
   });
   const start = panel.querySelector("#startInput");
@@ -646,6 +659,7 @@ function renderStep3Membership() {
     delete pendingErrors.startDate;
     saveDraft();
     updateRail();
+    refreshSticky();
   });
 }
 
@@ -1278,6 +1292,80 @@ function handlePayment() {
   window.location.href = "confirmation.html?ref=" + encodeURIComponent(record.ref);
 }
 
+/* ---- Sticky continue bar ---- */
+
+/*
+ * Shown only when all three are true: the step is one you advance out of with
+ * a plain Continue, the choice for that step has actually been made, and the
+ * step's own controls are scrolled out of view. Step 5 is excluded on purpose
+ * — paying should take a deliberate press on the real button, never a floating
+ * one that happens to be under your thumb.
+ *
+ * Driven by plain geometry on a passive scroll listener rather than an
+ * IntersectionObserver. An observer is the tidier tool but its first callback
+ * is asynchronous and it does not fire reliably in every context; this reads
+ * one rect and is correct the instant it is called, in every browser.
+ */
+
+function stepHasChoice() {
+  if (draft.step === 1) return Boolean(draft.serviceId);
+  if (draft.step === 2) return Boolean(draft.locationId);
+  if (draft.step === 3) return scheduleComplete();
+  return draft.step === 4; // long form; no single "choice" to wait for
+}
+
+function stickyLabel() {
+  const svc = getService(draft.serviceId);
+  if (draft.step === 1 && svc) return svc.name;
+  if (draft.step === 2) {
+    const loc = getLocation(draft.locationId);
+    return loc ? loc.name : "";
+  }
+  return "";
+}
+
+function setStickyVisible(visible) {
+  if (!sticky.bar) return;
+  sticky.bar.hidden = !visible;
+  if (visible) sticky.label.textContent = stickyLabel();
+}
+
+function refreshSticky() {
+  if (!sticky.bar) return;
+  if (draft.step >= 5 || !stepHasChoice()) {
+    setStickyVisible(false);
+    return;
+  }
+  const controls = panel.querySelector(".step-panel__controls");
+  if (!controls) {
+    setStickyVisible(false);
+    return;
+  }
+  const r = controls.getBoundingClientRect();
+  const inView = r.top < window.innerHeight && r.bottom > 0;
+  setStickyVisible(!inView);
+}
+
+if (sticky.btn) sticky.btn.addEventListener("click", advanceStep);
+
+/*
+ * Window listeners must survive this module running more than once — the
+ * single-file artifact build re-initialises the page on every visit, and a
+ * plain addEventListener would stack a handler each time.
+ */
+const STICKY_KEY = "__rinkStickySync";
+if (window[STICKY_KEY]) {
+  window.removeEventListener("scroll", window[STICKY_KEY]);
+  window.removeEventListener("resize", window[STICKY_KEY]);
+}
+const onViewportChange = () => {
+  if (!document.body.contains(panel)) return; // page swapped out from under us
+  refreshSticky();
+};
+window[STICKY_KEY] = onViewportChange;
+window.addEventListener("scroll", onViewportChange, { passive: true });
+window.addEventListener("resize", onViewportChange);
+
 /* ---- Chrome: step indicator + rail ---- */
 
 function updateStepsUI() {
@@ -1393,6 +1481,7 @@ function render(moveFocus = true) {
   updateRail();
   saveDraft();
   wireControls();
+  refreshSticky();
   if (moveFocus) {
     scrollToStepTop();
     /* Scroll is handled above, so focus must not also try — see the note on
@@ -1413,6 +1502,18 @@ function showServiceChangeNoticeCleanup() {
   }
 }
 
+/* The one path forward, shared by the in-panel button and the sticky bar. */
+function advanceStep() {
+  if (validateStep()) {
+    draft.step += 1;
+    pendingErrors = {};
+    render();
+  } else {
+    render(false);
+    focusFirstError();
+  }
+}
+
 function wireControls() {
   const back = panel.querySelector("#backBtn");
   if (back) {
@@ -1423,18 +1524,7 @@ function wireControls() {
     });
   }
   const cont = panel.querySelector("#continueBtn");
-  if (cont && draft.step < 5) {
-    cont.addEventListener("click", () => {
-      if (validateStep()) {
-        draft.step += 1;
-        pendingErrors = {};
-        render();
-      } else {
-        render(false);
-        focusFirstError();
-      }
-    });
-  }
+  if (cont && draft.step < 5) cont.addEventListener("click", advanceStep);
 }
 
 stepsList.addEventListener("click", (e) => {

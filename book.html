@@ -85,6 +85,15 @@
     </div>
   </main>
 
+  <!-- Sticky continue bar: shown when the step's own controls are scrolled
+       out of view, so a long option list doesn't hide the way forward. -->
+  <div class="step-sticky" id="stepSticky" hidden>
+    <div class="step-sticky__inner">
+      <span class="step-sticky__label" id="stepStickyLabel"></span>
+      <button type="button" class="btn btn--primary" id="stepStickyBtn">Continue</button>
+    </div>
+  </div>
+
   <footer class="site-footer">
     <div class="site-footer__main">
       <div>

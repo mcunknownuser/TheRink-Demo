@@ -989,6 +989,30 @@ fieldset.option-set legend {
 .band--switch { padding: var(--sp-7) 0 0; }
 .band--tight { padding-top: var(--sp-6); }
 
+/* ---- 5.23 Sticky continue bar (wizard) ----
+ * Step 1 lists thirteen services, so the Continue button sits far below the
+ * fold. This bar appears once a choice is made and the step's own controls are
+ * off-screen, and hides again as they scroll into view — so there is never
+ * more than one Continue on screen at a time.
+ */
+.step-sticky {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+  background: var(--black);
+  border-top: var(--edge) solid var(--red);
+}
+.step-sticky__inner {
+  max-width: var(--container); margin: 0 auto;
+  padding: var(--sp-3) var(--sp-4);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
+}
+.step-sticky__label {
+  font-family: var(--font-head); font-weight: 600; font-size: var(--fs-cap);
+  text-transform: uppercase; letter-spacing: var(--ls-btn); color: var(--white);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.step-sticky__label:empty { display: none; }
+.step-sticky .btn { flex: none; }
+
 /* ---- 5.21 Membership (Testify) ---- */
 
 .included { border: var(--border); border-left: var(--edge) solid var(--red); padding: var(--sp-4) var(--sp-5); margin-bottom: var(--sp-5); }
@@ -1043,6 +1067,7 @@ fieldset.option-set legend {
   .step-panel { padding: var(--sp-6); }
 
   .confirm-page { padding: var(--sp-8) var(--sp-5); }
+  .step-sticky__inner { padding: var(--sp-3) var(--sp-5); }
 
   .included__list { grid-template-columns: repeat(2, 1fr); }
   .account-picker__row { grid-template-columns: 1.2fr 1.6fr auto; align-items: baseline; gap: var(--sp-4); }
