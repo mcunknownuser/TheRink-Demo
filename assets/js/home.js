@@ -80,6 +80,13 @@ function apply(view, { scroll = false } = {}) {
     section.hidden = view !== "all" && view !== brand;
   }
 
+  /* Filtering to one brand puts the whole page in that brand, not just the
+     catalogue section — otherwise chrome outside the section (the header's
+     accent rule) keeps the other brand's colour. "All" shows both, so it
+     falls back to the default palette. */
+  if (view === "all") document.body.removeAttribute("data-brand");
+  else document.body.setAttribute("data-brand", view);
+
   introEl.textContent = VIEWS[view].intro;
 
   switchEl.querySelectorAll("input").forEach((input) => {

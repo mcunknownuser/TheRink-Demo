@@ -114,6 +114,8 @@ function saveDraft() {
 
 let draft = loadDraft() || blankDraft();
 let showServiceChangeNotice = false;
+let pickedThisStep = false;  // has the customer chosen something on this step?
+let renderedStep = null;     // which step the panel currently shows
 let pendingErrors = {}; // fieldKey -> message, rendered by the current step
 
 /* ?service= pre-fill: a valid bookable id starts a fresh flow with that
@@ -335,7 +337,7 @@ function renderStep1() {
       saveDraft();
       applyBrandSkin(); // the page wears the brand as soon as it is chosen
       updateRail();
-      refreshSticky();
+      markPicked();
     });
   });
 }
@@ -381,7 +383,7 @@ function renderStep2() {
       pendingErrors = {};
       saveDraft();
       updateRail();
-      refreshSticky();
+      markPicked();
     });
   });
 }
@@ -491,7 +493,7 @@ function renderStep3Hourly(svc) {
       delete pendingErrors.startTime;
       saveDraft();
       updateRail();
-      refreshSticky();
+      markPicked();
       panel.querySelectorAll(".slot").forEach((b) => {
         b.classList.toggle("is-selected", b === btn);
         b.setAttribute("aria-pressed", b === btn ? "true" : "false");
@@ -529,7 +531,7 @@ function renderStep3Seasonal(svc) {
       delete pendingErrors.program;
       saveDraft();
       updateRail();
-      refreshSticky();
+      markPicked();
     });
   });
   panel.querySelectorAll('input[name="season"]').forEach((input) => {
@@ -538,7 +540,7 @@ function renderStep3Seasonal(svc) {
       delete pendingErrors.season;
       saveDraft();
       updateRail();
-      refreshSticky();
+      markPicked();
     });
   });
 }
@@ -572,7 +574,7 @@ function renderStep3Camp() {
       delete pendingErrors.campWeek;
       saveDraft();
       updateRail();
-      refreshSticky();
+      markPicked();
     });
   });
 }
@@ -650,7 +652,7 @@ function renderStep3Membership() {
       delete pendingErrors.tier;
       saveDraft();
       updateRail();
-      refreshSticky();
+      markPicked();
     });
   });
   const start = panel.querySelector("#startInput");
@@ -659,7 +661,7 @@ function renderStep3Membership() {
     delete pendingErrors.startDate;
     saveDraft();
     updateRail();
-    refreshSticky();
+    markPicked();
   });
 }
 
@@ -762,6 +764,7 @@ function renderStep4() {
       draft.details[key] = el.value;
       saveDraft();
       updateRail();
+      markPicked(); // typing counts as engaging with the step
     });
   };
   bind("pName", "participantName");
@@ -777,6 +780,7 @@ function renderStep4() {
       draft.details.ageGroup = age.value;
       delete pendingErrors.pAge;
       saveDraft();
+      markPicked();
     });
   }
 }
@@ -1308,6 +1312,12 @@ function handlePayment() {
  */
 
 function stepHasChoice() {
+  /* The bar answers something the customer did — it never greets them. On
+     arrival it stays hidden even when ?service= has pre-filled the choice from
+     a "Book" card; it appears once they pick an option or start scrolling the
+     list. Programmatic scrolls (the jump to the top on a step change) don't
+     count, which is why engagement is read from real gestures below. */
+  if (!pickedThisStep) return false;
   if (draft.step === 1) return Boolean(draft.serviceId);
   if (draft.step === 2) return Boolean(draft.locationId);
   if (draft.step === 3) return scheduleComplete();
@@ -1328,6 +1338,12 @@ function setStickyVisible(visible) {
   if (!sticky.bar) return;
   sticky.bar.hidden = !visible;
   if (visible) sticky.label.textContent = stickyLabel();
+}
+
+/* Called by every control that constitutes "choosing" on a step. */
+function markPicked() {
+  pickedThisStep = true;
+  refreshSticky();
 }
 
 function refreshSticky() {
@@ -1354,17 +1370,40 @@ if (sticky.btn) sticky.btn.addEventListener("click", advanceStep);
  * plain addEventListener would stack a handler each time.
  */
 const STICKY_KEY = "__rinkStickySync";
+const GESTURE_KEY = "__rinkStickyGesture";
 if (window[STICKY_KEY]) {
   window.removeEventListener("scroll", window[STICKY_KEY]);
   window.removeEventListener("resize", window[STICKY_KEY]);
+}
+if (window[GESTURE_KEY]) {
+  for (const type of ["wheel", "touchmove", "keydown"]) {
+    window.removeEventListener(type, window[GESTURE_KEY]);
+  }
 }
 const onViewportChange = () => {
   if (!document.body.contains(panel)) return; // page swapped out from under us
   refreshSticky();
 };
+/*
+ * Reading engagement from wheel/touch/key rather than the scroll event is
+ * deliberate: scrollToStepTop() scrolls programmatically on every step change,
+ * and a scroll listener could not tell that apart from the customer moving
+ * down the list — so the bar would re-appear the instant each new step
+ * rendered, which is the behaviour being fixed.
+ */
+const onUserGesture = () => {
+  if (!document.body.contains(panel)) return;
+  if (pickedThisStep) return;
+  pickedThisStep = true;
+  refreshSticky();
+};
 window[STICKY_KEY] = onViewportChange;
+window[GESTURE_KEY] = onUserGesture;
 window.addEventListener("scroll", onViewportChange, { passive: true });
 window.addEventListener("resize", onViewportChange);
+for (const type of ["wheel", "touchmove", "keydown"]) {
+  window.addEventListener(type, onUserGesture, { passive: true });
+}
 
 /* ---- Chrome: step indicator + rail ---- */
 
@@ -1473,6 +1512,10 @@ function scrollToStepTop() {
 }
 
 function render(moveFocus = true) {
+  if (draft.step !== renderedStep) {
+    pickedThisStep = false; // a new step starts with nothing chosen on it
+    renderedStep = draft.step;
+  }
   showServiceChangeNoticeCleanup();
   applyBrandSkin();
   const renderers = [renderStep1, renderStep2, renderStep3, renderStep4, renderStep5];
